@@ -2,16 +2,16 @@ import os
 import json
 from typing import Dict, Any
 
-import openai
+from openai import OpenAI
 
-# Берём ключ из ENV (Railway + локальный .env через load_dotenv в main.py)
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Новый клиент OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def _build_prompt(table_data: Dict[str, Any], metrics: Dict[str, Any], raw_summary: str, is_premium: bool) -> str:
+def _build_prompt(table_data: Dict[str, Any], metrics: Dict[str, Any], raw_summary: str) -> str:
     """
     Собираем промпт для модели.
-    Формат ответа: JSON с нужными полями.
+    Возвращаем текст, который будет отправлен в messages.
     """
 
     base_info = {
@@ -19,37 +19,28 @@ def _build_prompt(table_data: Dict[str, Any], metrics: Dict[str, Any], raw_summa
         "metrics": metrics,
     }
 
-    # На будущее: если будет BASE-тариф, можно урезать анализ по is_premium
     prompt = f"""
 Ты — эксперт по юнит-экономике, маркетплейсам и малому бизнесу в Кыргызстане и Казахстане.
-Твоя задача — проанализировать нишу и товар, используя переданные данные таблицы Artbazar AI.
+Анализируешь нишу и товар по данным Artbazar AI.
 
-Данные (в формате JSON):
+Данные (JSON):
 {json.dumps(base_info, ensure_ascii=False, indent=2)}
 
-Человеко-читаемая сводка:
+Сводная таблица:
 \"\"\"
 {raw_summary}
 \"\"\"
 
-Профиль пользователя:
-- Предприниматель или начинающий предприниматель.
-- Регион: Кыргызстан / Казахстан.
-- Цель: понять, стоит ли заходить в эту нишу с этим товаром.
+Верни строго JSON следующего вида:
 
-Сформируй ОТВЕТ в современном телеграм-формате, но верни его СТРОГО в формате JSON со следующими ключами:
+{{
+  "report": "...",
+  "forecast": "...",
+  "risks": "...",
+  "decision": "стоит заходить" | "есть смысл протестировать" | "не стоит заходить"
+}}
 
-- "report"   : общий аналитический отчёт по нише и товару (1–3 абзаца)
-- "forecast" : прогноз по нише/товару (рост/падение, потенциал, горизонт 6–12 месяцев)
-- "risks"    : ключевые риски (списком, коротко)
-- "decision" : итоговое решение в формате одной фразы:
-               "стоит заходить" ИЛИ "есть смысл протестировать" ИЛИ "не стоит заходить"
-
-Важно:
-- Пиши конкретно по цифрам, маржинальности и рискам.
-- Не извиняйся.
-- Не добавляй никакого текста ВНЕ JSON.
-- Не используй markdown в JSON. Просто текст.
+Не пиши ничего вне JSON. Не используй markdown.
 """
 
     return prompt
@@ -57,33 +48,31 @@ def _build_prompt(table_data: Dict[str, Any], metrics: Dict[str, Any], raw_summa
 
 def _call_openai(prompt: str) -> Dict[str, Any]:
     """
-    Вызов OpenAI ChatCompletion.
-    Возвращаем dict с ключами report, forecast, risks, decision.
-    Если что-то пошло не так — возвращаем минимальный fallback.
+    Вызов нового OpenAI API.
     """
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
                     "content": (
                         "Ты строгий, но понятный бизнес-аналитик. "
-                        "Твоя задача — помогать предпринимателям принимать решения о нише и товаре."
-                    ),
+                        "Помогаешь предпринимателям принимать решения о нише и товаре."
+                    )
                 },
-                {"role": "user", "content": prompt},
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ],
             temperature=0.4,
             max_tokens=900,
         )
 
-        content = response["choices"][0]["message"]["content"]
-
-        # Пытаемся разобрать JSON
+        content = response.choices[0].message.content
         data = json.loads(content)
 
-        # Гарантируем наличие ключей
         return {
             "report": data.get("report", "").strip(),
             "forecast": data.get("forecast", "").strip(),
@@ -92,9 +81,8 @@ def _call_openai(prompt: str) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        # Fallback — если модель вернула не-JSON или упала
         return {
-            "report": f"AI-анализ временно недоступен. Техническая ошибка: {e}",
+            "report": f"AI-анализ временно недоступен (ошибка: {e})",
             "forecast": "",
             "risks": "",
             "decision": "",
@@ -108,15 +96,7 @@ async def analyze_artbazar_table(
     is_premium: bool = True,
 ) -> Dict[str, Any]:
     """
-    Основная функция, которую вызывает artbazar_table_flow.
-    Сейчас is_premium всегда True (вариант C — все как Premium).
-    Позже сюда добавим real premium-логику.
+    Основная функция анализа Artbazar AI Таблицы.
     """
-
-    # На этом этапе просто игнорируем is_premium и делаем полный анализ
-    prompt = _build_prompt(table_data, metrics, raw_summary, is_premium=is_premium)
-
-    # Вызов OpenAI синхронный, но для простоты MVP просто вызываем его напрямую.
-    # Для больших нагрузок можно вынести в executor.
-    result = _call_openai(prompt)
-    return result
+    prompt = _build_prompt(table_data, metrics, raw_summary)
+    return _call_openai(prompt)
