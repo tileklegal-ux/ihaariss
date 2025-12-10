@@ -5,10 +5,10 @@ import logging
 from telegram.ext import Application, CommandHandler
 
 from config import BOT_TOKEN
-from handlers.owner import owner_command, owner_stats, add_manager, remove_manager
+from database.db import init_db  # ← добавили
+from handlers.owner import owner_command
 from handlers.manager import give_premium, extend_premium, remove_premium_cmd
 from handlers.user import register_user_handlers
-from services.premium_checker import check_premium_expiration
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -21,28 +21,26 @@ async def start(update, context):
 
 
 def main():
+    # 🔥 ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ (Railway создаст таблицы)
+    init_db()
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Базовая команда
     app.add_handler(CommandHandler("start", start))
 
-    # OWNER
+    # Owner
     app.add_handler(CommandHandler("owner", owner_command))
-    app.add_handler(CommandHandler("owner_stats", owner_stats))
-    app.add_handler(CommandHandler("add_manager", add_manager))
-    app.add_handler(CommandHandler("remove_manager", remove_manager))
 
-    # MANAGER (работа по username)
+    # Manager commands (работают по username)
     app.add_handler(CommandHandler("give_premium", give_premium))
     app.add_handler(CommandHandler("extend_premium", extend_premium))
     app.add_handler(CommandHandler("remove_premium", remove_premium_cmd))
 
-    # Premium уведомления — ручной запуск (для теста cron-логики)
-    app.add_handler(CommandHandler("check_premium", check_premium_expiration))
-
-    # USER-флоу (таблица, анализ, экспорт)
+    # User handlers (analysis, etc.)
     register_user_handlers(app)
 
+    # Запускаем polling
     app.run_polling()
 
 
