@@ -18,15 +18,14 @@ BTN_NICHE = "🔎 Подбор ниши"
 BTN_PROFILE = "👤 Личный кабинет"
 BTN_PREMIUM = "❤️ Премиум"
 
-# Рост и продажи — каналы
-BTN_INST = "Instagram"
-BTN_TG = "Telegram"
-BTN_MP = "Маркетплейс"
-BTN_KASPI = "Kaspi"
-BTN_WB = "Wildberries"
-BTN_OZON = "Ozon"
-BTN_OFFLINE = "Офлайн"
-BTN_OTHER = "Другое"
+# Рост и продажи — каналы (КАНОНИЧЕСКИЕ)
+BTN_INST = "📸 Instagram"
+BTN_TG = "✈️ Telegram"
+BTN_KASPI = "🟡 Kaspi"
+BTN_WB = "🟣 Wildberries"
+BTN_OZON = "🔵 Ozon"
+BTN_OFFLINE = "🏪 Офлайн"
+BTN_OTHER = "➕ Другое"
 
 # =============================
 # КЛАВИАТУРЫ
@@ -60,9 +59,9 @@ def growth_channels_keyboard():
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton(BTN_INST), KeyboardButton(BTN_TG)],
-            [KeyboardButton(BTN_MP), KeyboardButton(BTN_KASPI)],
-            [KeyboardButton(BTN_WB), KeyboardButton(BTN_OZON)],
-            [KeyboardButton(BTN_OFFLINE), KeyboardButton(BTN_OTHER)],
+            [KeyboardButton(BTN_KASPI), KeyboardButton(BTN_WB)],
+            [KeyboardButton(BTN_OZON), KeyboardButton(BTN_OFFLINE)],
+            [KeyboardButton(BTN_OTHER)],
             [KeyboardButton(BTN_BACK)],
         ],
         resize_keyboard=True,
@@ -202,12 +201,19 @@ async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
 
         await update.message.reply_text(
-            "📈 План роста:\n\n"
+            "📈 План роста\n\n"
             f"Канал: {channel}\n\n"
+            "Что это значит:\n"
+            "— именно здесь к тебе приходят клиенты\n"
+            "— рост зависит от качества этого канала\n\n"
+            "Что делать дальше:\n"
             "1️⃣ Усиль поток клиентов\n"
+            "   (больше охвата и входящих заявок)\n\n"
             "2️⃣ Проверь оффер\n"
-            "3️⃣ Убери узкие места\n\n"
-            "Работай по одному шагу.",
+            "   (понятно ли, за что платят?)\n\n"
+            "3️⃣ Убери узкие места\n"
+            "   (где клиенты теряются)\n\n"
+            "Работай по одному шагу. Не всё сразу.",
             reply_markup=business_hub_keyboard(),
         )
 
