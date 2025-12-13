@@ -18,14 +18,15 @@ BTN_NICHE = "🔎 Подбор ниши"
 BTN_PROFILE = "👤 Личный кабинет"
 BTN_PREMIUM = "❤️ Премиум"
 
-# Рост и продажи — каналы (КАНОНИЧЕСКИЕ)
-BTN_INST = "📸 Instagram"
-BTN_TG = "✈️ Telegram"
-BTN_KASPI = "🟡 Kaspi"
-BTN_WB = "🟣 Wildberries"
-BTN_OZON = "🔵 Ozon"
-BTN_OFFLINE = "🏪 Офлайн"
-BTN_OTHER = "➕ Другое"
+# Рост и продажи — каналы
+BTN_INST = "Instagram"
+BTN_TG = "Telegram"
+BTN_MP = "Маркетплейс"
+BTN_KASPI = "Kaspi"
+BTN_WB = "Wildberries"
+BTN_OZON = "Ozon"
+BTN_OFFLINE = "Офлайн"
+BTN_OTHER = "Другое"
 
 # =============================
 # КЛАВИАТУРЫ
@@ -59,9 +60,9 @@ def growth_channels_keyboard():
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton(BTN_INST), KeyboardButton(BTN_TG)],
-            [KeyboardButton(BTN_KASPI), KeyboardButton(BTN_WB)],
-            [KeyboardButton(BTN_OZON), KeyboardButton(BTN_OFFLINE)],
-            [KeyboardButton(BTN_OTHER)],
+            [KeyboardButton(BTN_MP), KeyboardButton(BTN_KASPI)],
+            [KeyboardButton(BTN_WB), KeyboardButton(BTN_OZON)],
+            [KeyboardButton(BTN_OFFLINE), KeyboardButton(BTN_OTHER)],
             [KeyboardButton(BTN_BACK)],
         ],
         resize_keyboard=True,
@@ -87,7 +88,6 @@ async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• снижать риск ошибок\n\n"
         "⚠️ Важно:\n"
         "Любая аналитика — это ориентир, а не гарантия.\n"
-        "Рынок меняется, данные могут быть неполными.\n"
         "Финальные решения всегда остаются за тобой.\n\n"
         "Продолжим?"
     )
@@ -141,7 +141,12 @@ async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["pm_state"] = "revenue"
 
     await update.message.reply_text(
-        "💰 Прибыль и деньги\n\nВведи выручку:",
+        "💰 Прибыль и деньги\n\n"
+        "Этот сценарий помогает понять, "
+        "остаётся ли у бизнеса реальная прибыль.\n\n"
+        "Введи *выручку за месяц* — "
+        "сколько денег пришло всего:",
+        parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup(
             [[KeyboardButton(BTN_BACK)]],
             resize_keyboard=True,
@@ -154,13 +159,18 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.replace(" ", "")
 
     if not text.isdigit():
-        await update.message.reply_text("Введи число.")
+        await update.message.reply_text("Введи число, без букв.")
         return
 
     if state == "revenue":
         context.user_data["revenue"] = int(text)
         context.user_data["pm_state"] = "expenses"
-        await update.message.reply_text("Теперь введи расходы:")
+
+        await update.message.reply_text(
+            "Теперь введи *расходы за месяц* — "
+            "аренда, реклама, закуп, доставка и т.д.:",
+            parse_mode="Markdown",
+        )
         return
 
     if state == "expenses":
@@ -172,12 +182,13 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
 
         await update.message.reply_text(
-            f"📊 Результат:\n\n"
+            "📊 *Результат расчёта:*\n\n"
             f"Выручка: {revenue}\n"
             f"Расходы: {expenses}\n"
             f"Прибыль: {profit}\n"
             f"Маржа: {margin:.1f}%\n\n"
-            "Это ориентир, а не финансовый совет.",
+            "Это ориентир для размышлений, а не финсовет.",
+            parse_mode="Markdown",
             reply_markup=business_hub_keyboard(),
         )
 
@@ -190,7 +201,10 @@ async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["gs_state"] = "channel"
 
     await update.message.reply_text(
-        "🚀 Рост и продажи\n\nГде основной канал продаж?",
+        "🚀 Рост и продажи\n\n"
+        "Сначала определим, "
+        "где сейчас ты находишь клиентов.\n\n"
+        "Выбери основной канал продаж:",
         reply_markup=growth_channels_keyboard(),
     )
 
@@ -201,19 +215,16 @@ async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
 
         await update.message.reply_text(
-            "📈 План роста\n\n"
+            "📈 *План роста (базовый):*\n\n"
             f"Канал: {channel}\n\n"
-            "Что это значит:\n"
-            "— именно здесь к тебе приходят клиенты\n"
-            "— рост зависит от качества этого канала\n\n"
-            "Что делать дальше:\n"
             "1️⃣ Усиль поток клиентов\n"
-            "   (больше охвата и входящих заявок)\n\n"
+            "— больше обращений и заявок\n\n"
             "2️⃣ Проверь оффер\n"
-            "   (понятно ли, за что платят?)\n\n"
+            "— понятно ли, зачем покупать именно у тебя\n\n"
             "3️⃣ Убери узкие места\n"
-            "   (где клиенты теряются)\n\n"
-            "Работай по одному шагу. Не всё сразу.",
+            "— где клиенты чаще всего «теряются»\n\n"
+            "Работай по одному шагу, не всё сразу.",
+            parse_mode="Markdown",
             reply_markup=business_hub_keyboard(),
         )
 
