@@ -18,27 +18,12 @@ BTN_NICHE = "🔎 Подбор ниши"
 BTN_PROFILE = "👤 Личный кабинет"
 BTN_PREMIUM = "❤️ Премиум"
 
-# Категории
-BTN_CAT_CLOTHES = "👗 Одежда / обувь"
-BTN_CAT_ELECTRONICS = "📱 Электроника"
-BTN_CAT_HOME = "🏠 Товары для дома"
-BTN_CAT_KIDS = "🧸 Детские товары"
-BTN_CAT_AUTO = "🚗 Авто / аксессуары"
-BTN_CAT_FOOD = "🍔 Еда / напитки"
-BTN_CAT_BEAUTY = "🧴 Красота / уход"
-BTN_CAT_OTHER = "📦 Другое"
-
-# Цена
-BTN_PRICE_LOW = "до 1 000"
-BTN_PRICE_MID = "1 000 – 3 000"
-BTN_PRICE_HIGH = "3 000 – 7 000"
-BTN_PRICE_PREMIUM = "7 000+"
-
-# Конкуренция
-BTN_COMP_LOW = "Низкая"
-BTN_COMP_MED = "Средняя"
-BTN_COMP_HIGH = "Высокая"
-
+# Каналы продаж (Рост)
+BTN_CH_INST = "Instagram"
+BTN_CH_TG = "Telegram"
+BTN_CH_MP = "Маркетплейсы"
+BTN_CH_OFFLINE = "Офлайн"
+BTN_CH_OTHER = "Другое"
 
 # =============================
 # КЛАВИАТУРЫ
@@ -68,41 +53,16 @@ def business_hub_keyboard():
     )
 
 
-def product_category_keyboard():
+def growth_channel_keyboard():
     return ReplyKeyboardMarkup(
         [
-            [KeyboardButton(BTN_CAT_CLOTHES), KeyboardButton(BTN_CAT_ELECTRONICS)],
-            [KeyboardButton(BTN_CAT_HOME), KeyboardButton(BTN_CAT_KIDS)],
-            [KeyboardButton(BTN_CAT_AUTO), KeyboardButton(BTN_CAT_FOOD)],
-            [KeyboardButton(BTN_CAT_BEAUTY), KeyboardButton(BTN_CAT_OTHER)],
+            [KeyboardButton(BTN_CH_INST), KeyboardButton(BTN_CH_TG)],
+            [KeyboardButton(BTN_CH_MP), KeyboardButton(BTN_CH_OFFLINE)],
+            [KeyboardButton(BTN_CH_OTHER)],
             [KeyboardButton(BTN_BACK)],
         ],
         resize_keyboard=True,
     )
-
-
-def price_keyboard():
-    return ReplyKeyboardMarkup(
-        [
-            [KeyboardButton(BTN_PRICE_LOW), KeyboardButton(BTN_PRICE_MID)],
-            [KeyboardButton(BTN_PRICE_HIGH), KeyboardButton(BTN_PRICE_PREMIUM)],
-            [KeyboardButton(BTN_BACK)],
-        ],
-        resize_keyboard=True,
-    )
-
-
-def competition_keyboard():
-    return ReplyKeyboardMarkup(
-        [
-            [KeyboardButton(BTN_COMP_LOW)],
-            [KeyboardButton(BTN_COMP_MED)],
-            [KeyboardButton(BTN_COMP_HIGH)],
-            [KeyboardButton(BTN_BACK)],
-        ],
-        resize_keyboard=True,
-    )
-
 
 # =============================
 # START FLOW (USER) — CANONICAL
@@ -152,7 +112,6 @@ async def on_no(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_main_menu_keyboard(),
     )
 
-
 # =============================
 # БИЗНЕС-АНАЛИЗ
 # =============================
@@ -171,9 +130,8 @@ async def on_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_main_menu_keyboard(),
     )
 
-
 # =============================
-# FSM 💰 ПРИБЫЛЬ И ДЕНЬГИ
+# FSM 💰 ПРИБЫЛЬ И ДЕНЬГИ (НЕ ТРОГАЛИ)
 # =============================
 
 async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -181,10 +139,7 @@ async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["pm_state"] = "revenue"
     await update.message.reply_text(
         "Введи выручку:",
-        reply_markup=ReplyKeyboardMarkup(
-            [[KeyboardButton(BTN_BACK)]],
-            resize_keyboard=True,
-        ),
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton(BTN_BACK)]], resize_keyboard=True),
     )
 
 
@@ -214,87 +169,35 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=business_hub_keyboard(),
         )
 
-
 # =============================
-# FSM 🚀 РОСТ
+# FSM 🚀 РОСТ И ПРОДАЖИ — FIX
 # =============================
 
 async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    context.user_data["gs_state"] = "start"
+    context.user_data["gs_state"] = "channel"
+
     await update.message.reply_text(
         "Где основной канал продаж?",
-        reply_markup=ReplyKeyboardMarkup(
-            [[KeyboardButton(BTN_BACK)]],
-            resize_keyboard=True,
-        ),
+        reply_markup=growth_channel_keyboard(),
     )
 
 
 async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await update.message.reply_text(
-        "План роста готов.",
-        reply_markup=business_hub_keyboard(),
-    )
+    state = context.user_data.get("gs_state")
+    channel = update.message.text
 
-
-# =============================
-# FSM 📊 АНАЛИТИКА ТОВАРА (v1)
-# =============================
-
-async def ta_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    context.user_data["ta_state"] = "category"
-    await update.message.reply_text(
-        "Что ты хочешь продавать?",
-        reply_markup=product_category_keyboard(),
-    )
-
-
-async def ta_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get("ta_state")
-    text = update.message.text
-
-    if state == "category":
-        context.user_data["category"] = text
-        context.user_data["ta_state"] = "price"
-        await update.message.reply_text(
-            "Выбери цену продажи:",
-            reply_markup=price_keyboard(),
-        )
-        return
-
-    if state == "price":
-        context.user_data["price"] = text
-        context.user_data["ta_state"] = "competition"
-        await update.message.reply_text(
-            "Оцени конкуренцию:",
-            reply_markup=competition_keyboard(),
-        )
-        return
-
-    if state == "competition":
-        category = context.user_data.get("category")
-        price = context.user_data.get("price")
-        competition = text
-
-        verdict = "Можно тестировать"
-        if competition == BTN_COMP_HIGH:
-            verdict = "Сомнительно — высокая конкуренция"
-
+    if state == "channel":
         context.user_data.clear()
 
         await update.message.reply_text(
-            f"📊 Итог:\n\n"
-            f"{verdict}\n\n"
-            f"Категория: {category}\n"
-            f"Цена: {price}\n"
-            f"Конкуренция: {competition}\n\n"
-            f"Следующий шаг: протестируй спрос без закупки.",
-            reply_markup=get_main_menu_keyboard(),
+            "🚀 План роста:\n\n"
+            "1️⃣ Сфокусируйся на одном канале\n"
+            "2️⃣ Проверь оффер и упаковку\n"
+            "3️⃣ Получи первые 10–20 откликов\n\n"
+            "Это ориентир, а не гарантия.",
+            reply_markup=business_hub_keyboard(),
         )
-
 
 # =============================
 # FSM ROUTER
@@ -305,34 +208,21 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await pm_handler(update, context)
     elif context.user_data.get("gs_state"):
         await growth_handler(update, context)
-    elif context.user_data.get("ta_state"):
-        await ta_handler(update, context)
-
 
 # =============================
 # ДРУГИЕ РАЗДЕЛЫ
 # =============================
 
 async def ns_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Скоро.",
-        reply_markup=get_main_menu_keyboard(),
-    )
+    await update.message.reply_text("Скоро.", reply_markup=get_main_menu_keyboard())
 
 
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Скоро.",
-        reply_markup=get_main_menu_keyboard(),
-    )
+    await update.message.reply_text("Скоро.", reply_markup=get_main_menu_keyboard())
 
 
 async def on_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Скоро.",
-        reply_markup=get_main_menu_keyboard(),
-    )
-
+    await update.message.reply_text("Скоро.", reply_markup=get_main_menu_keyboard())
 
 # =============================
 # REGISTER
