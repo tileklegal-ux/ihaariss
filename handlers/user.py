@@ -32,7 +32,7 @@ BTN_CAT_OTHER = "📦 Другое"
 BTN_PRICE_LOW = "до 1 000"
 BTN_PRICE_MID = "1 000 – 3 000"
 BTN_PRICE_HIGH = "3 000 – 7 000"
-BTN_PRICE_PREMIUM = "7 000+" 
+BTN_PRICE_PREMIUM = "7 000+"
 
 # Конкуренция
 BTN_COMP_LOW = "Низкая"
@@ -105,15 +105,33 @@ def competition_keyboard():
 
 
 # =============================
-# START FLOW
+# START FLOW (USER) — CANONICAL
 # =============================
 
 async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+
     user = update.effective_user
     name = user.first_name or user.username or "друг"
 
+    text = (
+        f"Привет, {name} 👋\n\n"
+        "Тебя приветствует Artbazar AI — "
+        "аналитический помощник для предпринимателей.\n\n"
+        "Я помогаю:\n"
+        "• проверять идеи и товары\n"
+        "• считать экономику\n"
+        "• выбирать ниши\n"
+        "• снижать риск ошибок\n\n"
+        "⚠️ Важно:\n"
+        "Любая аналитика — это ориентир, а не гарантия.\n"
+        "Рынок меняется, данные могут быть неполными.\n"
+        "Финальные решения всегда остаются за тобой.\n\n"
+        "Продолжим?"
+    )
+
     await update.message.reply_text(
-        f"Привет, {name} 👋\n\nПродолжим?",
+        text,
         reply_markup=ReplyKeyboardMarkup(
             [[KeyboardButton(BTN_YES), KeyboardButton(BTN_NO)]],
             resize_keyboard=True,
@@ -122,11 +140,17 @@ async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def on_yes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Выбери раздел 👇", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "Выбери раздел 👇",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 async def on_no(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Хорошо. Я рядом.", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "Хорошо. Я рядом.",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 # =============================
@@ -134,12 +158,18 @@ async def on_no(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =============================
 
 async def on_business_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Выбери сценарий:", reply_markup=business_hub_keyboard())
+    await update.message.reply_text(
+        "Выбери сценарий:",
+        reply_markup=business_hub_keyboard(),
+    )
 
 
 async def on_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await update.message.reply_text("Главное меню", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "Главное меню",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 # =============================
@@ -151,7 +181,10 @@ async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["pm_state"] = "revenue"
     await update.message.reply_text(
         "Введи выручку:",
-        reply_markup=ReplyKeyboardMarkup([[KeyboardButton(BTN_BACK)]], resize_keyboard=True),
+        reply_markup=ReplyKeyboardMarkup(
+            [[KeyboardButton(BTN_BACK)]],
+            resize_keyboard=True,
+        ),
     )
 
 
@@ -191,13 +224,19 @@ async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["gs_state"] = "start"
     await update.message.reply_text(
         "Где основной канал продаж?",
-        reply_markup=ReplyKeyboardMarkup([[KeyboardButton(BTN_BACK)]], resize_keyboard=True),
+        reply_markup=ReplyKeyboardMarkup(
+            [[KeyboardButton(BTN_BACK)]],
+            resize_keyboard=True,
+        ),
     )
 
 
 async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await update.message.reply_text("План роста готов.", reply_markup=business_hub_keyboard())
+    await update.message.reply_text(
+        "План роста готов.",
+        reply_markup=business_hub_keyboard(),
+    )
 
 
 # =============================
@@ -220,13 +259,19 @@ async def ta_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state == "category":
         context.user_data["category"] = text
         context.user_data["ta_state"] = "price"
-        await update.message.reply_text("Выбери цену продажи:", reply_markup=price_keyboard())
+        await update.message.reply_text(
+            "Выбери цену продажи:",
+            reply_markup=price_keyboard(),
+        )
         return
 
     if state == "price":
         context.user_data["price"] = text
         context.user_data["ta_state"] = "competition"
-        await update.message.reply_text("Оцени конкуренцию:", reply_markup=competition_keyboard())
+        await update.message.reply_text(
+            "Оцени конкуренцию:",
+            reply_markup=competition_keyboard(),
+        )
         return
 
     if state == "competition":
@@ -269,15 +314,24 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =============================
 
 async def ns_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Скоро.", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "Скоро.",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Скоро.", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "Скоро.",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 async def on_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Скоро.", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "Скоро.",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 # =============================
