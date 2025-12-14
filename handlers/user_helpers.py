@@ -68,3 +68,31 @@ def insights_bridge_text(context):
         parts.append(f"• Риск: {insights['risk']}")
 
     return "\n".join(parts) + "\n\n"
+
+# =============================
+# RESULTS STORAGE (ARCH LAYER)
+# =============================
+
+def save_result(context, result: dict):
+    """
+    Сохраняет завершённый результат сценария.
+    Используется ТОЛЬКО в *_finish шагах FSM.
+    """
+    history = context.user_data.get("history", [])
+    history.append(result)
+    context.user_data["history"] = history
+
+
+def get_results_summary(context):
+    """
+    Возвращает краткую сводку для личного кабинета (FREE).
+    """
+    history = context.user_data.get("history", [])
+    summary = {}
+
+    for item in history:
+        t = item.get("type")
+        summary[t] = summary.get(t, 0) + 1
+
+    return summary
+
