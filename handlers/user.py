@@ -321,11 +321,6 @@ async def on_business_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
-async def on_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    clear_fsm(context)
-    await update.message.reply_text("Главное меню", reply_markup=main_menu_keyboard())
-
-
 # =============================
 # 💰 ПРИБЫЛЬ И ДЕНЬГИ (FSM)
 # =============================
@@ -554,7 +549,6 @@ async def send_ta_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price = data.get("price_reaction", "")
     resource = data.get("resource", "")
 
-    # агрегаты для памяти (без названий/цифр/персональных)
     demand_type = "непонятно"
     if purpose == "Решает конкретную проблему":
         demand_type = "проблема"
@@ -943,9 +937,6 @@ def register_handlers_user(app):
     # product/niche
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_ANALYSIS}$"), ta_start))
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_NICHE}$"), ns_start))
-
-    # back (оставляем, но основной Back отрабатывает в router)
-    app.add_handler(MessageHandler(filters.Regex(f"^{BTN_BACK}$"), on_back))
 
     # общий роутер текста
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
