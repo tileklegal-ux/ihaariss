@@ -735,6 +735,11 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def register_handlers_user(app):
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
 from handlers.profile import on_profile, on_export_excel, on_export_pdf
+from handlers.profile import (
+    on_profile,
+    on_export_excel,
+    on_export_pdf,
+)
 
 app.add_handler(MessageHandler(filters.Regex("^👤 Личный кабинет$"), on_profile))
 app.add_handler(MessageHandler(filters.Regex("^📊 Скачать Excel$"), on_export_excel))
