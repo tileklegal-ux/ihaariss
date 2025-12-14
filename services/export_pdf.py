@@ -1,45 +1,43 @@
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+# -*- coding: utf-8 -*-
+from fpdf import FPDF
+from io import BytesIO
 from datetime import datetime
 
 
-def generate_pdf(path: str, table: dict, ai: dict):
+class ReportPDF(FPDF):
+    def header(self):
+        self.set_font("Arial", "B", 14)
+        self.cell(0, 10, "Artbazar AI — Аналитический отчёт", ln=True)
+        self.ln(4)
+
+
+def build_pdf_report(history: list) -> BytesIO:
     """
-    Генерирует PDF отчёт.
-    path — путь сохранения PDF.
-    table — словарь Artbazar AI Таблицы.
-    ai — словарь AI-анализа.
+    Генерирует PDF-отчёт по истории пользователя.
+    Никакой FSM, только рендер.
     """
+    pdf = ReportPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=11)
 
-    c = canvas.Canvas(path, pagesize=A4)
-    width, height = A4
+    if not history:
+        pdf.multi_cell(0, 8, "Нет данных для отчёта.")
+    else:
+        for item in history:
+            pdf.ln(3)
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 8, f"{item.get('type', '').upper()} — {item.get('date', '')}", ln=True)
 
-    y = height - 40
+            pdf.set_font("Arial", size=11)
+            summary = item.get("summary", "")
+            pdf.multi_cell(0, 7, f"Сводка: {summary}")
 
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(40, y, "Artbazar AI — Анализ товара")
-    y -= 30
+            ai_text = item.get("ai_comment", "")
+            if ai_text:
+                pdf.ln(1)
+                pdf.set_font("Arial", "I", 10)
+                pdf.multi_cell(0, 6, ai_text)
 
-    c.setFont("Helvetica", 12)
-
-    # Таблица
-    for key, value in table.items():
-        c.drawString(40, y, f"{key}: {value}")
-        y -= 18
-
-    y -= 20
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(40, y, "AI-анализ:")
-    y -= 20
-
-    c.setFont("Helvetica", 12)
-
-    for key, value in ai.items():
-        c.drawString(40, y, f"{key}: {value}")
-        y -= 18
-        if y < 60:
-            c.showPage()
-            y = height - 40
-
-    c.showPage()
-    c.save()
+    stream = BytesIO(pdf.output(dest="S").encode("latin-1"))
+    stream.seek(0)
+    return stream
