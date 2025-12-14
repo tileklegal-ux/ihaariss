@@ -27,7 +27,6 @@ from handlers.owner import (
 
 # MANAGER
 from handlers.manager import (
-    manager_panel,
     register_manager_handlers,
 )
 
@@ -41,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==================================================
-# MIDDLEWARE — фиксируем пользователя (НЕ ЛОМАЕТ FSM)
+# MIDDLEWARE
 # ==================================================
 async def save_user_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user:
@@ -54,7 +53,7 @@ async def save_user_middleware(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ==================================================
-# /start — КАНОНИЧЕСКИЙ РОУТЕР ПО РОЛЯМ
+# /start — КАНОНИЧЕСКИЙ РОУТЕР
 # ==================================================
 async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = get_user_role(update.effective_user.id)
@@ -64,10 +63,12 @@ async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if role == "manager":
-        await manager_panel(update, context)
+        await update.message.reply_text(
+            "🧑‍💼 Режим менеджера\n\n"
+            "Используй доступные команды."
+        )
         return
 
-    # user по умолчанию
     await cmd_start_user(update, context)
 
 
@@ -75,38 +76,28 @@ async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MAIN
 # ==================================================
 def main():
-    # 1️⃣ DB
     init_db()
 
-    # 2️⃣ APP
     application = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
         .build()
     )
 
-    # 3️⃣ MIDDLEWARE — САМЫЙ ПЕРВЫЙ
     application.add_handler(
         MessageHandler(filters.ALL & ~filters.COMMAND, save_user_middleware),
         group=-1,
     )
 
-    # 4️⃣ /start — ЕДИНАЯ ТОЧКА ВХОДА
     application.add_handler(
         CommandHandler("start", cmd_start_router),
         group=0,
     )
 
-    # 5️⃣ OWNER
     register_owner_handlers(application)
-
-    # 6️⃣ MANAGER
     register_manager_handlers(application)
-
-    # 7️⃣ USER
     register_handlers_user(application)
 
-    # 8️⃣ RUN
     application.run_polling()
 
 
