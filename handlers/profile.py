@@ -5,9 +5,12 @@ from telegram.ext import ContextTypes
 from handlers.user_helpers import get_results_summary
 from handlers.user_keyboards import (
     main_menu_keyboard,
-    BTN_PREMIUM,
     BTN_BACK,
 )
+
+from services.export_excel import build_excel_report
+from services.export_pdf import build_pdf_report
+
 
 # ==================================================
 # 👤 ЛИЧНЫЙ КАБИНЕТ
@@ -15,7 +18,6 @@ from handlers.user_keyboards import (
 
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.user_data
-
     is_premium = user_data.get("is_premium", False)
     history = user_data.get("history", [])
 
@@ -77,10 +79,8 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
             s = item.get("summary", "")
             lines.append(f"• {t} | {d} | {s}")
 
-    lines.extend([
-        "",
-        "Экспорт:",
-    ])
+    lines.append("")
+    lines.append("Экспорт:")
 
     await update.message.reply_text(
         "\n".join(lines),
@@ -91,4 +91,52 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ],
             resize_keyboard=True,
         ),
+    )
+
+
+# ==================================================
+# 📊 EXCEL EXPORT
+# ==================================================
+
+async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    history = context.user_data.get("history", [])
+
+    if not history:
+        await update.message.reply_text(
+            "Нет данных для Excel-отчёта.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
+
+    stream = build_excel_report(history)
+
+    await update.message.reply_document(
+        document=stream,
+        filename="artbazar_report.xlsx",
+        caption="📊 Excel-отчёт",
+        reply_markup=main_menu_keyboard(),
+    )
+
+
+# ==================================================
+# 📄 PDF EXPORT
+# ==================================================
+
+async def on_export_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    history = context.user_data.get("history", [])
+
+    if not history:
+        await update.message.reply_text(
+            "Нет данных для PDF-отчёта.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
+
+    stream = build_pdf_report(history)
+
+    await update.message.reply_document(
+        document=stream,
+        filename="artbazar_report.pdf",
+        caption="📄 PDF-отчёт",
+        reply_markup=main_menu_keyboard(),
     )
