@@ -9,6 +9,8 @@ from telegram import (
     InlineKeyboardButton,
 )
 from telegram.ext import ContextTypes, MessageHandler, filters
+from handlers.user_texts import T
+
 
 from handlers.user_keyboards import (
     main_menu_keyboard,
@@ -39,6 +41,9 @@ from handlers.user_texts import t
 from services.openai_client import ask_openai
 
 logger = logging.getLogger(__name__)
+
+if "lang" not in context.user_data:
+    context.user_data["lang"] = "ru"
 
 # =============================
 # FSM KEYS / STATES
