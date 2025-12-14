@@ -59,7 +59,8 @@ OWNER_START_TEXT = (
 # ==================================================
 
 async def owner_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    # НЕ чистим user_data полностью — роль OWNER должна сохраняться
+    context.user_data.pop("owner_mode", None)
 
     await update.message.reply_text(
         OWNER_START_TEXT,
@@ -74,7 +75,7 @@ async def open_owner_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if get_user_role(update.effective_user.id) != "owner":
         return
 
-    context.user_data.clear()
+    context.user_data.pop("owner_mode", None)
 
     await update.message.reply_text(
         "👑 Панель владельца",
@@ -112,8 +113,6 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if get_user_role(update.effective_user.id) != "owner":
         return
 
-    context.user_data.clear()
-
     stats = get_stats()
     text = (
         "📊 Статистика бота:\n\n"
@@ -122,7 +121,11 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👑 Владельцы: {stats['owner']}\n"
         f"⭐ Premium: {stats['premium']}"
     )
-    await update.message.reply_text(text)
+
+    await update.message.reply_text(
+        text,
+        reply_markup=OWNER_MENU,
+    )
 
 # ==================================================
 # FSM HANDLER
@@ -159,7 +162,7 @@ async def handle_owner_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         msg = "✅ Менеджер удалён" if ok else "❌ Не удалось удалить менеджера"
         await update.message.reply_text(msg)
 
-    context.user_data.clear()
+    context.user_data.pop("owner_mode", None)
     await open_owner_menu(update, context)
 
 # ==================================================
