@@ -9,7 +9,7 @@ from telegram import (
     InlineKeyboardButton,
 )
 from telegram.ext import ContextTypes, MessageHandler, filters
-from handlers.user_texts import T
+from handlers.user_texts import t
 
 
 from handlers.user_keyboards import (
@@ -72,8 +72,8 @@ PREMIUM_KEY = "premium"
 async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_fsm(context)
 
-if "lang" not in context.user_data:
-        context.user_data["lang"] = "ru"
+	if "lang" not in context.user_data:
+        	context.user_data["lang"] = "ru"
 
 
     user = update.effective_user
