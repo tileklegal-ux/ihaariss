@@ -44,7 +44,9 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.extend([
             "",
             "Ты можешь анализировать идеи и риски.",
-            "В Premium доступны отчёты, история и выгрузка в PDF / Excel.",
+            "В Premium доступны:",
+            "• история результатов",
+            "• экспорт отчётов в PDF и Excel",
         ])
 
         await update.message.reply_text(
@@ -69,7 +71,7 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     if not history:
-        lines.append("— нет данных для отчётов")
+        lines.append("— пока нет данных для отчётов")
     else:
         for item in history[-5:]:
             tpe = item.get("type", "—")
@@ -79,7 +81,9 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines.extend([
         "",
-        "Экспорт:",
+        "📤 Экспорт отчётов:",
+        "• PDF — краткий отчёт, удобно читать и отправлять",
+        "• Excel — таблица для анализа и работы с цифрами",
     ])
 
     await update.message.reply_text(
@@ -114,7 +118,7 @@ async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(
         document=stream,
         filename="artbazar_report.xlsx",
-        caption="📊 Excel",
+        caption="📊 Excel — таблица с твоими результатами",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -139,6 +143,6 @@ async def on_export_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(
         document=stream,
         filename="artbazar_report.pdf",
-        caption="📄 PDF",
+        caption="📄 PDF — краткий отчёт по твоим анализам",
         reply_markup=main_menu_keyboard(),
     )
