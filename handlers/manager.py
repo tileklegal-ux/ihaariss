@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sqlite3
 from datetime import datetime, timedelta
@@ -39,7 +40,7 @@ def manager_keyboard():
     )
 
 # ==================================================
-# DB helpers (локально, без правки database/db.py)
+# DB helpers
 # ==================================================
 
 def _db_path() -> str:
@@ -47,50 +48,37 @@ def _db_path() -> str:
     return os.path.join(base_dir, "database", "artbazar.db")
 
 
-def _get_columns(conn) -> set:
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(users)")
-    rows = cur.fetchall()
-    return {r[1] for r in rows}
-
-
-def set_premium_by_username(username: str, days: int) -> bool:
-    username = (username or "").replace("@", "").strip()
-    if not username or days <= 0:
-        return False
-
+def _get_user_by_username(username: str):
     conn = sqlite3.connect(_db_path())
     try:
-        cols = _get_columns(conn)
         cur = conn.cursor()
+        cur.execute(
+            "SELECT telegram_id, username FROM users WHERE username = ?",
+            (username,),
+        )
+        return cur.fetchone()
+    finally:
+        conn.close()
 
-        cur.execute("SELECT telegram_id FROM users WHERE username = ?", (username,))
-        row = cur.fetchone()
-        if not row:
-            return False
 
+def set_premium_by_telegram_id(telegram_id: int, days: int):
+    conn = sqlite3.connect(_db_path())
+    try:
+        cur = conn.cursor()
         now = datetime.utcnow()
         premium_until = (now + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
 
-        if "premium_until" in cols:
-            cur.execute(
-                "UPDATE users SET is_premium = 1, premium_until = ?, updated_at = ? WHERE username = ?",
-                (premium_until, now.strftime("%Y-%m-%d %H:%M:%S"), username),
-            )
-        else:
-            if "updated_at" in cols:
-                cur.execute(
-                    "UPDATE users SET is_premium = 1, updated_at = ? WHERE username = ?",
-                    (now.strftime("%Y-%m-%d %H:%M:%S"), username),
-                )
-            else:
-                cur.execute(
-                    "UPDATE users SET is_premium = 1 WHERE username = ?",
-                    (username,),
-                )
-
+        cur.execute(
+            """
+            UPDATE users
+            SET is_premium = 1,
+                premium_until = ?,
+                updated_at = ?
+            WHERE telegram_id = ?
+            """,
+            (premium_until, now.strftime("%Y-%m-%d %H:%M:%S"), telegram_id),
+        )
         conn.commit()
-        return True
     finally:
         conn.close()
 
@@ -120,12 +108,12 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.user_data.get(FSM_WAIT_PREMIUM_INPUT):
-        return  # ❗ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
+        return
 
     text = (update.message.text or "").strip()
     parts = text.split()
 
-    if len(parts) != 2:
+    if len(parts) != 2 or not parts[0].startswith("@") or not parts[1].isdigit():
         await update.message.reply_text(
             "❌ Неверный формат.\nИспользуй:\n`@username дни`",
             parse_mode="Markdown",
@@ -133,18 +121,34 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     username = parts[0].replace("@", "").strip()
-    try:
-        days = int(parts[1])
-    except ValueError:
-        await update.message.reply_text("❌ Количество дней должно быть числом.")
+    days = int(parts[1])
+
+    user_row = _get_user_by_username(username)
+    if not user_row:
+        await update.message.reply_text("❌ Пользователь не найден в базе.")
         return
 
-    ok = set_premium_by_username(username, days)
-    if not ok:
-        await update.message.reply_text("❌ Пользователь не найден.")
-        return
+    telegram_id, _ = user_row
+    set_premium_by_telegram_id(telegram_id, days)
 
     context.user_data.pop(FSM_WAIT_PREMIUM_INPUT, None)
+
+    # 🔔 Тёплое уведомление пользователю
+    try:
+        await context.bot.send_message(
+            chat_id=telegram_id,
+            text=(
+                "🎉 *Premium активирован!*\n\n"
+                f"Срок: *{days} дней*\n\n"
+                "Теперь в личном кабинете доступны:\n"
+                "• история\n"
+                "• PDF / Excel экспорт\n\n"
+                "Спасибо, что с ArtBazaar AI ❤️"
+            ),
+            parse_mode="Markdown",
+        )
+    except Exception:
+        pass
 
     await update.message.reply_text(
         f"✅ Premium активирован\n\n"
@@ -166,7 +170,6 @@ def register_manager_handlers(app):
         group=1,
     )
 
-    # FSM input — ТОЛЬКО при активном режиме
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_premium_input),
         group=3,
