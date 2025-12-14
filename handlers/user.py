@@ -37,7 +37,7 @@ from handlers.user_helpers import (
     insights_bridge_text,
 )
 
-from handlers.user_texts import t
+
 from services.openai_client import ask_openai
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,8 @@ TA_RESOURCE = "ta_resource"
 
 NS_STEP_KEY = "ns_step"
 
-PREMIUM_KEY = "premium"
+PREMIUM_KEY = "is_premium"
+
 
 # =============================
 # START / ONBOARDING
