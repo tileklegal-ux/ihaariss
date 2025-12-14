@@ -33,6 +33,8 @@ GC_OFFLINE = "🏬 Офлайн"
 # FSM KEYS
 # =============================
 
+INSIGHTS_KEY = "insights"
+
 # 💰 Прибыль и деньги
 PM_STATE_KEY = "pm_state"
 PM_STATE_REVENUE = "revenue"
@@ -55,6 +57,63 @@ NS_STEP_KEY = "ns_step"
 
 # ❤️ Premium
 PREMIUM_KEY = "premium_screen"
+
+
+# =============================
+# HELPERS: инсайты + безопасная очистка FSM
+# =============================
+
+def _ensure_insights(context: ContextTypes.DEFAULT_TYPE):
+    if INSIGHTS_KEY not in context.user_data or not isinstance(context.user_data.get(INSIGHTS_KEY), dict):
+        context.user_data[INSIGHTS_KEY] = {}
+
+def clear_fsm(context: ContextTypes.DEFAULT_TYPE):
+    """
+    Очищаем только FSM-ключи/временные поля, НЕ трогаем insights.
+    """
+    _ensure_insights(context)
+    keep = {INSIGHTS_KEY: context.user_data.get(INSIGHTS_KEY, {})}
+    context.user_data.clear()
+    context.user_data.update(keep)
+
+def insights_bridge_text(context: ContextTypes.DEFAULT_TYPE) -> str:
+    """
+    Короткая связка между сценариями. Никаких обещаний, только ощущение непрерывности.
+    """
+    _ensure_insights(context)
+    ins = context.user_data.get(INSIGHTS_KEY, {})
+    if not ins:
+        return ""
+    # максимально коротко, без “я всё помню”, без магии
+    last = ins.get("last_scenario")
+    last_v = ins.get("last_verdict")
+    if last and last_v:
+        return (
+            "Я опираюсь на то, что мы уже разобрали, чтобы не начинать с нуля.\n"
+            f"Прошлый ориентир: {last} → {last_v}.\n\n"
+        )
+    return "Я опираюсь на то, что мы уже разобрали, чтобы не начинать с нуля.\n\n"
+
+def save_insights(context: ContextTypes.DEFAULT_TYPE, *, last_scenario: str, last_verdict: str,
+                 risk_level: str = None, demand_type: str = None, seasonality: str = None,
+                 competition: str = None, resource: str = None):
+    _ensure_insights(context)
+    ins = context.user_data[INSIGHTS_KEY]
+
+    ins["last_scenario"] = last_scenario
+    ins["last_verdict"] = last_verdict
+
+    if risk_level is not None:
+        ins["risk_level"] = risk_level
+    if demand_type is not None:
+        ins["demand_type"] = demand_type
+    if seasonality is not None:
+        ins["seasonality"] = seasonality
+    if competition is not None:
+        ins["competition"] = competition
+    if resource is not None:
+        ins["resource"] = resource
+
 
 # =============================
 # КЛАВИАТУРЫ
@@ -98,12 +157,13 @@ def step_keyboard(buttons):
     rows.append([KeyboardButton(BTN_BACK)])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
+
 # =============================
 # START
 # =============================
 
 async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     user = update.effective_user
     name = user.first_name or user.username or "друг"
 
@@ -135,12 +195,13 @@ async def on_no(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_keyboard(),
     )
 
+
 # =============================
 # 📊 БИЗНЕС-АНАЛИЗ (хаб)
 # =============================
 
 async def on_business_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     await update.message.reply_text(
         "📊 Бизнес-анализ\n\n"
         "Здесь вы можете посмотреть на бизнес со стороны.\n"
@@ -151,21 +212,25 @@ async def on_business_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 async def on_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     await update.message.reply_text(
         "Главное меню",
         reply_markup=main_menu_keyboard(),
     )
+
 
 # =============================
 # 💰 ПРИБЫЛЬ И ДЕНЬГИ (FSM)
 # =============================
 
 async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     context.user_data[PM_STATE_KEY] = PM_STATE_REVENUE
 
+    bridge = insights_bridge_text(context)
+
     await update.message.reply_text(
+        bridge +
         "💰 Прибыль и деньги\n\n"
         "Укажи выручку за выбранный месяц.\n"
         "Сколько денег фактически поступило от клиентов.\n"
@@ -175,7 +240,9 @@ async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").replace(" ", "").replace(",", "").strip()
+    text_raw = (update.message.text or "")
+    text = text_raw.replace(" ", "").replace(",", "").strip()
+
     if not text.isdigit():
         await update.message.reply_text("Введи число, без букв.")
         return
@@ -198,7 +265,33 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expenses = int(text)
         profit = revenue - expenses
         margin = (profit / revenue * 100) if revenue else 0
-        context.user_data.clear()
+
+        # инсайты (агрегаты), без цифр/истории
+        risk_level = "средний"
+        if revenue == 0:
+            risk_level = "высокий"
+        else:
+            if margin < 0:
+                risk_level = "высокий"
+            elif margin < 10:
+                risk_level = "средний"
+            else:
+                risk_level = "низкий"
+
+        last_verdict = "Осторожно"
+        if margin >= 10:
+            last_verdict = "Можно смотреть"
+        if margin < 0:
+            last_verdict = "Высокий риск"
+
+        # сохраняем инсайты, потом чистим FSM
+        save_insights(
+            context,
+            last_scenario="💰 Деньги",
+            last_verdict=last_verdict,
+            risk_level=risk_level
+        )
+        clear_fsm(context)
 
         await update.message.reply_text(
             "Итог за месяц:\n"
@@ -212,15 +305,19 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=business_hub_keyboard(),
         )
 
+
 # =============================
 # 🚀 РОСТ И ПРОДАЖИ (FSM)
 # =============================
 
 async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     context.user_data[GROWTH_KEY] = True
 
+    bridge = insights_bridge_text(context)
+
     await update.message.reply_text(
+        bridge +
         "🚀 Рост и продажи\n\n"
         "Этот шаг нужен не для оценки эффективности.\n"
         "Мы просто фиксируем, откуда клиенты приходят сейчас,\n"
@@ -232,7 +329,10 @@ async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     channel = update.message.text or ""
-    context.user_data.clear()
+
+    # инсайт: канал не храним, но отмечаем факт сценария
+    save_insights(context, last_scenario="🚀 Рост", last_verdict="Зафиксировали текущий канал")
+    clear_fsm(context)
 
     await update.message.reply_text(
         "📈 Текущая картина:\n\n"
@@ -249,15 +349,19 @@ async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=business_hub_keyboard(),
     )
 
+
 # =============================
 # 📦 АНАЛИТИКА ТОВАРА — FSM v1
 # =============================
 
 async def ta_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     context.user_data[TA_STATE_KEY] = TA_STAGE
 
+    bridge = insights_bridge_text(context)
+
     await update.message.reply_text(
+        bridge +
         "📦 Аналитика товара\n\n"
         "Этот сценарий не даёт ответов «стоит или нет».\n"
         "Он помогает спокойно посмотреть на ограничения\n"
@@ -333,14 +437,62 @@ async def ta_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_ta_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
 
-    # простая логика ориентиров (не “совет”)
-    verdict = "Осторожно"
-    if data.get("product_purpose") == "Решает конкретную проблему" and data.get("resource") != "Минимальный ресурс":
-        verdict = "Гипотеза допустима для проверки, но не является рекомендацией"
-    if data.get("product_purpose") in ("Желание / эмоция", "Не до конца понятно") and data.get("resource") == "Минимальный ресурс":
-        verdict = "Высокий риск"
+    purpose = data.get("product_purpose", "")
+    season = data.get("seasonality", "")
+    comp = data.get("competition", "")
+    resource = data.get("resource", "")
 
-    context.user_data.clear()
+    # агрегаты для памяти
+    demand_type = "непонятно"
+    if purpose == "Решает конкретную проблему":
+        demand_type = "проблема"
+    elif purpose == "Удобство / улучшение":
+        demand_type = "удобство"
+    elif purpose == "Желание / эмоция":
+        demand_type = "желание"
+
+    seasonality = "стабильно"
+    if season in ("Сезонный", "Ситуативный"):
+        seasonality = "сезонно"
+    elif season == "Волнами":
+        seasonality = "волнами"
+
+    competition = "средняя"
+    if comp == "Тихо":
+        competition = "низкая"
+    elif comp == "Перегрето":
+        competition = "высокая"
+
+    resource_level = "ограниченно"
+    if resource in ("Деньги", "Время", "Экспертиза"):
+        resource_level = "достаточно"
+    if resource == "Минимальный ресурс":
+        resource_level = "минимально"
+
+    verdict = "Осторожно"
+    risk_level = "средний"
+
+    if purpose == "Решает конкретную проблему" and resource != "Минимальный ресурс":
+        verdict = "Гипотеза допустима для проверки, но не является рекомендацией"
+        risk_level = "средний"
+    if purpose in ("Желание / эмоция", "Не до конца понятно") and resource == "Минимальный ресурс":
+        verdict = "Высокий риск"
+        risk_level = "высокий"
+    if competition == "низкая" and seasonality == "стабильно" and resource_level == "достаточно":
+        risk_level = "низкий"
+
+    # сохраняем инсайты, потом чистим FSM
+    save_insights(
+        context,
+        last_scenario="📦 Товар",
+        last_verdict=verdict if verdict != "Осторожно" else "Осторожно",
+        risk_level=risk_level,
+        demand_type=demand_type,
+        seasonality=seasonality,
+        competition=competition,
+        resource=resource_level
+    )
+    clear_fsm(context)
 
     await update.message.reply_text(
         "Мы зафиксировали текущее состояние товара.\n"
@@ -351,11 +503,11 @@ async def send_ta_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Окончательное решение всегда остаётся за тобой.\n"
         "Этот сценарий помогает видеть рамки,\n"
         "а не обещает результат.\n\n"
-        "Следующий шаг —\n"
-        "проверить спрос малыми действиями\n"
-        "без масштабирования.",
+        "Один из возможных шагов для дальнейшего размышления:\n"
+        "проверить спрос малыми действиями без масштабирования.",
         reply_markup=main_menu_keyboard(),
     )
+
 
 # =============================
 # 🔎 ПОДБОР НИШИ — FSM v1
@@ -389,10 +541,13 @@ NS_RESOURCE_EXPERT = "Экспертиза"
 NS_RESOURCE_MIN = "Минимальный ресурс"
 
 async def ns_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     context.user_data[NS_STEP_KEY] = 1
 
+    bridge = insights_bridge_text(context)
+
     await update.message.reply_text(
+        bridge +
         "🔎 Подбор ниши\n\n"
         "Этот сценарий помогает трезво посмотреть на направление,\n"
         "а не найти «правильную нишу».\n"
@@ -454,14 +609,60 @@ async def ns_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if step == 6:
         context.user_data["resource"] = ans
 
-        # ориентир (не рекомендация)
-        verdict = "Осторожно"
-        if context.user_data.get("demand") == NS_DEMAND_PROBLEM and context.user_data.get("resource") != NS_RESOURCE_MIN:
-            verdict = "Можно смотреть"
-        if context.user_data.get("demand") == NS_DEMAND_EMOTION and context.user_data.get("resource") == NS_RESOURCE_MIN:
-            verdict = "Высокий риск"
+        demand = context.user_data.get("demand", "")
+        season = context.user_data.get("seasonality", "")
+        comp = context.user_data.get("competition", "")
+        res = context.user_data.get("resource", "")
 
-        context.user_data.clear()
+        verdict = "Осторожно"
+        risk_level = "средний"
+
+        if demand == NS_DEMAND_PROBLEM and res != NS_RESOURCE_MIN:
+            verdict = "Можно смотреть"
+            risk_level = "средний"
+        if demand == NS_DEMAND_EMOTION and res == NS_RESOURCE_MIN:
+            verdict = "Высокий риск"
+            risk_level = "высокий"
+
+        demand_type = "непонятно"
+        if demand == NS_DEMAND_PROBLEM:
+            demand_type = "проблема"
+        elif demand == NS_DEMAND_REGULAR:
+            demand_type = "регулярность"
+        elif demand == NS_DEMAND_EMOTION:
+            demand_type = "желание"
+
+        seasonality = "стабильно"
+        if season == NS_SEASON_OK:
+            seasonality = "сезонно"
+        elif season == NS_SEASON_UNKNOWN:
+            seasonality = "неясно"
+
+        competition = "средняя"
+        if comp == NS_COMPETITION_SOFT:
+            competition = "низкая"
+        elif comp == NS_COMPETITION_HARD:
+            competition = "высокая"
+        elif comp == NS_COMPETITION_UNKNOWN:
+            competition = "неясно"
+
+        resource_level = "ограниченно"
+        if res in (NS_RESOURCE_MONEY, NS_RESOURCE_TIME, NS_RESOURCE_EXPERT):
+            resource_level = "достаточно"
+        if res == NS_RESOURCE_MIN:
+            resource_level = "минимально"
+
+        save_insights(
+            context,
+            last_scenario="🔎 Ниша",
+            last_verdict=verdict,
+            risk_level=risk_level,
+            demand_type=demand_type,
+            seasonality=seasonality,
+            competition=competition,
+            resource=resource_level
+        )
+        clear_fsm(context)
 
         await update.message.reply_text(
             "Этот результат не подбирает нишу за тебя.\n"
@@ -477,13 +678,32 @@ async def ns_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu_keyboard(),
         )
 
+
 # =============================
-# ❤️ PREMIUM
+# ❤️ PREMIUM (one-screen, через менеджера)
 # =============================
 
 async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     context.user_data[PREMIUM_KEY] = True
+
+    _ensure_insights(context)
+    ins = context.user_data.get(INSIGHTS_KEY, {})
+
+    # мягко показываем “ограничения”, без обещаний и без “я всё помню”
+    summary_lines = []
+    if ins.get("risk_level"):
+        summary_lines.append(f"— общий риск: {ins.get('risk_level')}")
+    if ins.get("resource"):
+        summary_lines.append(f"— ресурс: {ins.get('resource')}")
+    if ins.get("seasonality"):
+        summary_lines.append(f"— сезонность: {ins.get('seasonality')}")
+    if ins.get("competition"):
+        summary_lines.append(f"— конкуренция: {ins.get('competition')}")
+
+    summary = ""
+    if summary_lines:
+        summary = "\n\nТекущие ориентиры (по тому, что уже разобрали):\n" + "\n".join(summary_lines)
 
     await update.message.reply_text(
         "❤️ Premium — больше ясности\n\n"
@@ -495,20 +715,24 @@ async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Premium не снимает неопределённость —\n"
         "он делает её более видимой.\n\n"
         "Premium не делает решения правильными.\n"
-        "Он делает их более осознанными.",
+        "Он делает их более осознанными."
+        f"{summary}\n\n"
+        "Связаться с менеджером: @Artbazar_marketing",
         reply_markup=ReplyKeyboardMarkup([[KeyboardButton(BTN_BACK)]], resize_keyboard=True),
     )
+
 
 # =============================
 # ПРОЧЕЕ
 # =============================
 
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
+    clear_fsm(context)
     await update.message.reply_text(
         "👤 Личный кабинет\n\nИстория появится позже.",
         reply_markup=main_menu_keyboard(),
     )
+
 
 # =============================
 # ROUTER
@@ -521,10 +745,10 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_BACK:
         # если пользователь в бизнес-хабе (💰/🚀) — возвращаем туда, иначе в меню
         if context.user_data.get(PM_STATE_KEY) or context.user_data.get(GROWTH_KEY):
-            context.user_data.clear()
+            clear_fsm(context)
             await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
             return
-        context.user_data.clear()
+        clear_fsm(context)
         await update.message.reply_text("Главное меню", reply_markup=main_menu_keyboard())
         return
 
@@ -549,6 +773,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Premium одноэкранный, Back уже обработан выше
         return
 
+
 # =============================
 # REGISTER
 # =============================
@@ -571,7 +796,7 @@ def register_handlers_user(app):
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_ANALYSIS}$"), ta_start))
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_NICHE}$"), ns_start))
 
-    # back
+    # back (оставляем, но основной Back отрабатывает в router)
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_BACK}$"), on_back))
 
     # общий роутер текста
