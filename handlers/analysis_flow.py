@@ -254,7 +254,7 @@ async def step_risks(update, context):
     )
 
     await update.message.reply_text("Формирую отчёт...")
-    report = ask_ai(prompt)
+    report = await ask_ai(prompt)
     report = _postprocess_report(report)
 
     await update.message.reply_text(report)
