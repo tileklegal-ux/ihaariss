@@ -77,69 +77,73 @@ async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     )
 
+from pathlib import Path
+
+# Новый файл с исправленными заглушками вместо незавершённых функций
+handlers_user_code = '''\
 async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (полный код функции pm_handler) ...
+    await update.message.reply_text("⏳ Раздел в разработке.")
+
 
 # =============================
 # 🚀 РОСТ И ПРОДАЖИ (FSM)
 # =============================
 
 async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ growth_start в разработке.")
 
 async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ growth_handler в разработке.")
+
 
 # =============================
 # 📦 АНАЛИТИКА ТОВАРА — FSM v1 (полный)
 # =============================
 
 async def ta_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ ta_start в разработке.")
 
 async def ta_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ ta_handler в разработке.")
 
 async def send_ta_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ send_ta_result в разработке.")
+
 
 # =============================
 # 🔎 ПОДБОР НИШИ — FSM v1 (полный)
 # =============================
 
 async def ns_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ ns_start в разработке.")
 
 async def ns_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ ns_handler в разработке.")
+
 
 # =============================
 # ❤️ PREMIUM (коротко + цены + кнопка "что получу")
 # =============================
 
 async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ premium_start в разработке.")
 
 async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ premium_benefits в разработке.")
 
-# =============================
-# ПРОЧЕЕ
-# =============================
-
-async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    clear_fsm(context)
-    await update.message.reply_text(
-        "👤 Личный кабинет\n\nИстория появится позже.",
-        reply_markup=main_menu_keyboard(),
-    )
 
 # =============================
 # ROUTER
 # =============================
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (код функции) ...
+    await update.message.reply_text("⏳ text_router в разработке.")
+'''
+
+# Сохраняем в файл
+file_path = Path("/mnt/data/handlers_user.py")
+file_path.write_text(handlers_user_code, encoding="utf-8")
+file_path.name
 
 # =============================
 # REGISTER
