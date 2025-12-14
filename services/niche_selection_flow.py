@@ -1,10 +1,7 @@
 from typing import Literal, Optional, Dict, Any
-from openai import OpenAI
 
 from database.db import is_user_premium
-
-# Инициализируем клиента один раз на модуль
-client = OpenAI()
+from services.openai_client import ask_ai
 
 # --- Сезонная «золотая база» ниш ---
 
@@ -106,7 +103,7 @@ def _get_season_label(season: SeasonType) -> str:
 
 
 # ---------------------------------------------------------------------
-# Описание параметров
+# Описания параметров
 # ---------------------------------------------------------------------
 def _describe_business_format(business_format: BusinessFormatType) -> str:
     if business_format == "marketplace":
@@ -147,7 +144,7 @@ def _describe_audience(audience: AudienceType) -> str:
 
 
 # ---------------------------------------------------------------------
-# PROMPT — Base (без Markdown, только текст + эмодзи)
+# PROMPT — Base
 # ---------------------------------------------------------------------
 def _build_base_prompt(
     season: SeasonType,
@@ -163,9 +160,7 @@ def _build_base_prompt(
 Ты — Artbazar AI.
 
 Твоя задача: сформировать 3–5 ниш под параметры пользователя.
-Ответ должен быть удобен для чтения в Telegram, БЕЗ Markdown-разметки.
-НЕЛЬЗЯ использовать символы *, _, #, ~, `, а также конструкции вроде *текст*.
-Используй только обычный текст, нумерованные списки, переносы строк и эмодзи.
+Ответ БЕЗ markdown, только текст и эмодзи.
 
 Сезонный контекст:
 {season_context}
@@ -181,27 +176,19 @@ def _build_base_prompt(
 
 Подбор ниши (Base)
 
-Возможные ниши:
-
-1) Название ниши 1
-Краткое описание ниши в 1–2 предложениях.
-
-2) Название ниши 2
+1) Ниша
 Краткое описание.
 
-3) Название ниши 3
-Краткое описание.
-
-4) Название ниши 4 (по желанию)
+2) Ниша
 Краткое описание.
 
 Вывод:
-Один короткий совет, на какой нише лучше сфокусироваться в первую очередь.
+Один аккуратный ориентир, без рекомендаций.
 """
 
 
 # ---------------------------------------------------------------------
-# PROMPT — Premium (Variant C, BI-досье, без Markdown)
+# PROMPT — Premium
 # ---------------------------------------------------------------------
 def _build_premium_prompt(
     season: SeasonType,
@@ -215,24 +202,14 @@ def _build_premium_prompt(
     season_label = _get_season_label(season)
 
     return f"""
-Ты — Artbazar AI, эксперт по BI-аналитике для предпринимателей Казахстана и Кыргызстана.
+Ты — Artbazar AI, BI-аналитик.
 
-Сформируй Premium-отчёт формата Business Intelligence Dossier (Variant C).
-Текст должен быть читабельным в Telegram, БЕЗ Markdown-разметки.
-НЕЛЬЗЯ использовать символы *, _, #, ~, `, а также конструкции вроде *заголовок*.
-Используй заголовки через эмодзи и обычный текст.
+Сформируй Premium-отчёт.
 
 Сезонный контекст:
 {season_context}
 
-Структура ответа:
-
-1. Заголовок отчёта
-Напиши строку:
-Artbazar Premium Report
-
-2. Профиль пользователя
-Блок с перечислением параметров:
+Профиль:
 Сезон: {season_label}
 Формат: {_describe_business_format(business_format)}
 Бюджет: {_describe_budget_level(budget)}
@@ -240,73 +217,19 @@ Artbazar Premium Report
 Аудитория: {_describe_audience(audience)}
 Интересы: {interests}
 
-3. Обзор рынка
-Краткий анализ с учётом параметров пользователя:
-- общий спрос;
-- уровень конкуренции;
-- сезонные влияния;
-- примерные ценовые коридоры.
-Не более 4–5 предложений.
+Структура:
+1) Обзор
+2) Топ ниш
+3) Риски
+4) Итог
 
-4. Лучшие ниши (рейтинг 1–3)
-Перечисли от 2 до 3 ниш. Для каждой ниши укажи:
-
-1) Название ниши
-   KPI: спрос, маржа, конкуренция (очень коротко, в одном предложении).
-   Почему ниша подходит именно этому пользователю.
-   На что обратить внимание при запуске.
-
-Каждую нишу отделяй пустой строкой.
-
-5. Риски
-Перечисли реальные риски:
-- рыночные;
-- финансовые;
-- логистические;
-- операционные.
-Не более 4–5 пунктов, без воды.
-
-6. AI-вывод
-Сформулируй итог:
-- какая ниша номер один для старта;
-- почему именно она;
-- краткий прогноз результата (в качественных формулировках).
-Один абзац.
-
-7. Checklist на 7 дней
-Дай список из 5 практических шагов:
-1) ...
-2) ...
-3) ...
-4) ...
-5) ...
-
-Каждый шаг должен быть конкретным и понятным предпринимателю.
-Не используй общие фразы уровня "изучить рынок", давай прикладные действия.
-Не добавляй ничего сверх этой структуры.
+В конце:
+это ориентир, а не рекомендация; решение за пользователем.
 """
 
 
 # ---------------------------------------------------------------------
-# Вызов OpenAI
-# ---------------------------------------------------------------------
-def _call_openai(prompt: str) -> str:
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        temperature=0.7,
-        messages=[
-            {
-                "role": "system",
-                "content": "Ты — Artbazar AI, помогаешь предпринимателям Казахстана и Кыргызстана принимать решения по нишам и товарам.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-    )
-    return response.choices[0].message.content.strip()
-
-
-# ---------------------------------------------------------------------
-# Основная функция генерации
+# Основная функция
 # ---------------------------------------------------------------------
 def generate_niche_recommendations(
     user_id: int,
@@ -326,11 +249,11 @@ def generate_niche_recommendations(
             season, business_format, budget, experience, audience, interests
         )
 
-    return _call_openai(prompt)
+    return ask_ai(prompt)
 
 
 # ---------------------------------------------------------------------
-# Маппинг из Telegram → внутренние значения
+# Маппинг Telegram → внутренние значения
 # ---------------------------------------------------------------------
 def map_telegram_answers_to_internal(
     season_text: str,
@@ -341,44 +264,38 @@ def map_telegram_answers_to_internal(
 ) -> Dict[str, Any]:
     season = _map_season_to_internal(season_text)
 
-    # Формат
     bf = business_format_text.lower()
-    if "kaspi" in bf or "ozon" in bf or "wb" in bf or "market" in bf:
+    if "kaspi" in bf or "ozon" in bf or "wb" in bf:
         business_format: BusinessFormatType = "marketplace"
-    elif "instagram" in bf or "telegram" in bf or "соц" in bf:
+    elif "instagram" in bf or "telegram" in bf:
         business_format = "social"
-    elif "офф" in bf or "офлайн" in bf or "павильон" in bf:
+    elif "офф" in bf:
         business_format = "offline"
     else:
         business_format = "self_employed"
 
-    # Бюджет
     bd = budget_text.lower()
     if "низ" in bd:
         budget: BudgetLevelType = "low"
     elif "сред" in bd:
         budget = "medium"
-    elif "выс" in bd:
-        budget = "high"
     else:
-        budget = "medium"
+        budget = "high"
 
-    # Опыт
     ex = experience_text.lower()
-    if "нет" in ex or "нович" in ex:
+    if "нет" in ex:
         experience: ExperienceLevelType = "no_experience"
-    elif "баз" in ex or ("есть" in ex and "опыт" in ex):
+    elif "баз" in ex:
         experience = "some_experience"
     else:
         experience = "pro"
 
-    # Аудитория
     aud = audience_text.lower()
     if "жен" in aud:
         audience: AudienceType = "women"
     elif "муж" in aud:
         audience = "men"
-    elif "род" in aud or "дет" in aud:
+    elif "дет" in aud:
         audience = "parents_kids"
     elif "авто" in aud:
         audience = "autolovers"
