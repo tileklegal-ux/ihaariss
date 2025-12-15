@@ -10,18 +10,23 @@ from telegram import (
 from telegram.ext import ContextTypes
 
 from handlers.user_helpers import get_results_summary
-from handlers.user_keyboards import BTN_BACK, BTN_DOCS
-from handlers.user_texts import t
+from handlers.user_keyboards import (
+    main_menu_keyboard,
+    BTN_BACK,
+    BTN_DOCS,
+)
 
 from services.export_excel import build_excel_report
 from services.export_pdf import build_pdf_report
+
+# Premium — single source of truth
 from services.premium_checker import is_premium_user
 
 
 CHANNEL_URL = "https://t.me/artba3ar"
 
 
-def channel_button():
+def channel_inline_keyboard():
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton("🔔 Подписаться на канал ArtBazar.AI", url=CHANNEL_URL)]]
     )
@@ -33,17 +38,21 @@ def channel_button():
 
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    lang = context.user_data.get("lang", "ru")
-    premium = bool(is_premium_user(user_id))
-    history = context.user_data.get("history", [])
+    user_data = context.user_data
+
+    # Premium status
+    premium_now = bool(is_premium_user(user_id))
+    user_data["is_premium"] = premium_now
+
+    history = user_data.get("history", [])
 
     # ------------------------------
     # 🆓 FREE
     # ------------------------------
-    if not premium:
+    if not premium_now:
         summary = get_results_summary(context)
 
-        text = [
+        lines = [
             "👤 Личный кабинет",
             "",
             "Тариф: FREE",
@@ -52,25 +61,21 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
 
         if not summary:
-            text.append("— пока нет завершённых анализов")
+            lines.append("— пока нет завершённых анализов")
         else:
             for k, v in summary.items():
-                text.append(f"— {k}: {v}")
+                lines.append(f"— {k}: {v}")
 
-        text += [
+        lines.extend([
             "",
-            "В Premium доступно:",
+            "В Premium доступны:",
             "• история результатов",
-            "• экспорт PDF и Excel",
-        ]
+            "• экспорт отчётов в PDF и Excel",
+        ])
 
+        # ✅ ВАЖНО: reply-кнопки показываем в ЭТОМ ЖЕ сообщении (не пустым вторым)
         await update.message.reply_text(
-            "\n".join(text),
-            reply_markup=channel_button(),
-        )
-
-        await update.message.reply_text(
-            " ",
+            "\n".join(lines),
             reply_markup=ReplyKeyboardMarkup(
                 [
                     [KeyboardButton("❤️ Что даёт Premium")],
@@ -80,12 +85,18 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 resize_keyboard=True,
             ),
         )
+
+        # ✅ Канал — отдельным сообщением с inline (не ломает reply-клаву)
+        await update.message.reply_text(
+            "Подписывайся на канал — там разборы ниш, кейсы и обновления 👇",
+            reply_markup=channel_inline_keyboard(),
+        )
         return
 
     # ------------------------------
     # ⭐ PREMIUM
     # ------------------------------
-    text = [
+    lines = [
         "👤 Личный кабинет",
         "",
         "Тариф: PREMIUM ⭐",
@@ -94,27 +105,24 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     if not history:
-        text.append("— пока нет данных")
+        lines.append("— пока нет данных для отчётов")
     else:
         for item in history[-5:]:
-            text.append(
-                f"• {item.get('type','')} | {item.get('date','')} | {item.get('summary','')}"
-            )
+            tpe = item.get("type", "—")
+            d = item.get("date", "")
+            s = item.get("summary", "")
+            lines.append(f"• {tpe} | {d} | {s}")
 
-    text += [
+    lines.extend([
         "",
         "📤 Экспорт отчётов:",
-        "• PDF — краткий отчёт",
-        "• Excel — таблица с данными",
-    ]
+        "• PDF — краткий отчёт, удобно читать и отправлять",
+        "• Excel — таблица для анализа и работы с цифрами",
+    ])
 
+    # ✅ Кнопки PDF/Excel — в том же сообщении, чтобы Telegram не «съел»
     await update.message.reply_text(
-        "\n".join(text),
-        reply_markup=channel_button(),
-    )
-
-    await update.message.reply_text(
-        " ",
+        "\n".join(lines),
         reply_markup=ReplyKeyboardMarkup(
             [
                 [KeyboardButton("📄 Скачать PDF"), KeyboardButton("📊 Скачать Excel")],
@@ -125,23 +133,38 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     )
 
+    # ✅ Канал — отдельным сообщением с inline
+    await update.message.reply_text(
+        "Подписывайся на канал — там разборы ниш, кейсы и обновления 👇",
+        reply_markup=channel_inline_keyboard(),
+    )
+
 
 # ==================================================
 # 📊 EXCEL EXPORT
 # ==================================================
 
 async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_premium_user(update.effective_user.id):
+    user_id = update.effective_user.id
+
+    # защита экспорта
+    if not is_premium_user(user_id):
+        await update.message.reply_text("Экспорт доступен только в Premium.", reply_markup=main_menu_keyboard())
         return
 
     history = context.user_data.get("history", [])
+
     if not history:
+        await update.message.reply_text("Нет данных для экспорта.", reply_markup=main_menu_keyboard())
         return
 
     stream = build_excel_report(history)
+
     await update.message.reply_document(
         document=stream,
         filename="artbazar_report.xlsx",
+        caption="📊 Excel — таблица с твоими результатами",
+        reply_markup=main_menu_keyboard(),
     )
 
 
@@ -150,15 +173,24 @@ async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================================================
 
 async def on_export_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_premium_user(update.effective_user.id):
+    user_id = update.effective_user.id
+
+    # защита экспорта
+    if not is_premium_user(user_id):
+        await update.message.reply_text("Экспорт доступен только в Premium.", reply_markup=main_menu_keyboard())
         return
 
     history = context.user_data.get("history", [])
+
     if not history:
+        await update.message.reply_text("Нет данных для экспорта.", reply_markup=main_menu_keyboard())
         return
 
     stream = build_pdf_report(history)
+
     await update.message.reply_document(
         document=stream,
         filename="artbazar_report.pdf",
+        caption="📄 PDF — краткий отчёт по твоим анализам",
+        reply_markup=main_menu_keyboard(),
     )
