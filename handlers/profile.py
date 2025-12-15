@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 from telegram.ext import ContextTypes
 
 from handlers.user_helpers import get_results_summary
@@ -12,8 +18,6 @@ from handlers.user_texts import t
 
 from services.export_excel import build_excel_report
 from services.export_pdf import build_pdf_report
-
-# ✅ ЕДИНЫЙ И КАНОНИЧЕСКИЙ PREMIUM-GUARD
 from services.premium_checker import is_premium_user
 
 
@@ -21,14 +25,27 @@ from services.premium_checker import is_premium_user
 # 👤 ЛИЧНЫЙ КАБИНЕТ
 # ==================================================
 
+CHANNEL_URL = "https://t.me/artba3ar"
+
+
+def channel_inline_keyboard():
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="🔔 Подписаться на канал ArtBazar.ai",
+                    url=CHANNEL_URL,
+                )
+            ]
+        ]
+    )
+
+
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.user_data
     user_id = update.effective_user.id
     lang = user_data.get("lang", "ru")
 
-    # ------------------------------------------------
-    # PREMIUM CHECK (single source of truth)
-    # ------------------------------------------------
     premium_now = bool(is_premium_user(user_id))
     user_data["is_premium"] = premium_now
 
@@ -72,6 +89,11 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             "\n".join(lines),
+            reply_markup=channel_inline_keyboard(),
+        )
+
+        await update.message.reply_text(
+            " ",
             reply_markup=ReplyKeyboardMarkup(
                 [
                     [KeyboardButton("❤️ Что даёт Premium")],
@@ -112,6 +134,11 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "\n".join(lines),
+        reply_markup=channel_inline_keyboard(),
+    )
+
+    await update.message.reply_text(
+        " ",
         reply_markup=ReplyKeyboardMarkup(
             [
                 [
@@ -133,7 +160,6 @@ async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     lang = context.user_data.get("lang", "ru")
 
-    # backend-защита
     if not is_premium_user(user_id):
         await update.message.reply_text(
             "Экспорт доступен только в Premium.",
@@ -168,7 +194,6 @@ async def on_export_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     lang = context.user_data.get("lang", "ru")
 
-    # backend-защита
     if not is_premium_user(user_id):
         await update.message.reply_text(
             "Экспорт доступен только в Premium.",
