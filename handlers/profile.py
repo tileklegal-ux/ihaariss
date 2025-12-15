@@ -12,6 +12,9 @@ from handlers.user_texts import t
 from services.export_excel import build_excel_report
 from services.export_pdf import build_pdf_report
 
+# ✅ ВАЖНО: Premium берём из БД (single source of truth)
+from services.premium_checker import is_premium_user
+
 
 # ==================================================
 # 👤 ЛИЧНЫЙ КАБИНЕТ
@@ -19,14 +22,19 @@ from services.export_pdf import build_pdf_report
 
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.user_data
-    is_premium = user_data.get("is_premium", False)
+    user_id = update.effective_user.id
+
+    # ✅ Синхронизируем флаг Premium в user_data из БД
+    premium_now = bool(is_premium_user(user_id))
+    user_data["is_premium"] = premium_now
+
     history = user_data.get("history", [])
     lang = user_data.get("lang", "ru")
 
     # ------------------------------
     # 🆓 FREE
     # ------------------------------
-    if not is_premium:
+    if not premium_now:
         summary = get_results_summary(context)
 
         lines = [
