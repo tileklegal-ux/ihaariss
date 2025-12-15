@@ -22,8 +22,6 @@ from database.db import get_user_role
 # ==================================================
 
 BTN_ACTIVATE_PREMIUM = "🟢 Активировать Premium"
-BTN_EXPORT_PDF = "📄 Скачать PDF"
-BTN_EXPORT_EXCEL = "📊 Скачать Excel"
 
 # ==================================================
 # FSM
@@ -44,8 +42,8 @@ def manager_keyboard():
 def premium_profile_keyboard():
     return ReplyKeyboardMarkup(
         [
-            [KeyboardButton(BTN_EXPORT_PDF), KeyboardButton(BTN_EXPORT_EXCEL)],
-            [KeyboardButton("⬅️ Главное меню")],
+            [KeyboardButton("📄 Скачать PDF"), KeyboardButton("📊 Скачать Excel")],
+            [KeyboardButton("⬅️ Назад")],
         ],
         resize_keyboard=True,
     )
@@ -124,10 +122,16 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     parts = text.split()
 
+    # ❌ Неверный формат
     if len(parts) != 2 or not parts[0].startswith("@") or not parts[1].isdigit():
         await update.message.reply_text(
-            "❌ Неверный формат.\nИспользуй:\n`@username дни`",
+            "❌ Неверный формат.\n\n"
+            "Используй:\n"
+            "`@username дни`\n\n"
+            "Пример:\n"
+            "`@test_user 7`",
             parse_mode="Markdown",
+            reply_markup=manager_keyboard(),
         )
         return
 
@@ -135,20 +139,26 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days = int(parts[1])
 
     row = _get_user_by_username(username)
+
+    # ❌ Пользователь не найден
     if not row:
-        await update.message.reply_text("❌ Пользователь не найден в базе.")
+        await update.message.reply_text(
+            "❌ Пользователь не найден в базе.\n\n"
+            "Убедись, что пользователь:\n"
+            "• уже заходил в бот\n"
+            "• имеет @username\n\n"
+            "Попроси его написать /start и попробуй снова.",
+            reply_markup=manager_keyboard(),
+        )
         return
 
     telegram_id = row[0]
     set_premium_by_telegram_id(telegram_id, days)
 
+    # ✅ УСПЕХ — только тут чистим FSM
     context.user_data.pop(FSM_WAIT_PREMIUM_INPUT, None)
 
-    # ===============================
-    # 🔔 УВЕДОМЛЕНИЕ ПОЛЬЗОВАТЕЛЮ
-    # + АВТО-ВХОД В КАБИНЕТ
-    # ===============================
-
+    # 🔔 Уведомление пользователю
     try:
         await context.bot.send_message(
             chat_id=telegram_id,
