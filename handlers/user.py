@@ -652,9 +652,8 @@ async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
-# =============================
+
     # ❌ RESET AI CHAT MODE
-    # =============================
     if text in (
         BTN_BACK,
         BTN_BIZ,
@@ -664,37 +663,40 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BTN_PREMIUM,
     ):
         context.user_data.pop("ai_chat_mode", None)
-# ===============================
-# 🤖 AI CHAT MODE — TEXT INPUT
-# ===============================
-if context.user_data.get("ai_chat_mode"):
-    user_text = update.message.text.strip()
-
-    if not user_text:
         return
 
-    # защита: команды и кнопки не пускаем в AI
-    if user_text.startswith("/"):
+    # ===============================
+    # 🤖 AI CHAT MODE — TEXT INPUT
+    # ===============================
+    if context.user_data.get("ai_chat_mode"):
+        user_text = update.message.text.strip()
+
+        if not user_text:
+            return
+
+        # защита: команды не пускаем
+        if user_text.startswith("/"):
+            return
+
+        from services.openai_client import ask_ai_chat
+
+        await update.message.chat.send_action("typing")
+
+        try:
+            answer = await ask_ai_chat(
+                user_id=update.effective_user.id,
+                message=user_text,
+            )
+            await update.message.reply_text(answer)
+
+        except Exception:
+            await update.message.reply_text(
+                "⚠️ Не удалось получить ответ от AI. Попробуй ещё раз."
+            )
+
         return
 
-    from services.openai_client import ask_ai_chat
-
-    await update.message.chat.send_action("typing")
-
-    try:
-        answer = await ask_ai_chat(
-            user_id=update.effective_user.id,
-            message=user_text,
-        )
-
-        await update.message.reply_text(answer)
-
-    except Exception:
-        await update.message.reply_text(
-            "⚠️ Не удалось получить ответ от AI. Попробуй ещё раз."
-        )
-
-    return        
+    # ⬇️ ниже — остальной роутер (YES/NO, документы, premium и т.д.)
     # YES/NO
     if text == BTN_YES:
         await on_yes(update, context)
