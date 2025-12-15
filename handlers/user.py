@@ -602,7 +602,10 @@ async def ns_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_fsm(context)
-    await update.message.reply_text(
+
+    OFFER_URL = "https://www.notion.so/Premium-2c901cd07aa7808b85ddec9d8019e742?source=copy_link"
+
+    text = (
         "❤️ Premium\n\n"
         "Быстро и по делу: цены + подключение.\n\n"
         "💳 Стоимость:\n"
@@ -610,9 +613,20 @@ async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "6 месяцев — 2 699 сом / 13 499 ₸ / 2 399 ₽\n"
         "12 месяцев — 4 999 сом / 24 999 ₸ / 4 499 ₽\n\n"
         "📩 Подключение через менеджера:\n"
-        "@Artbazar_marketing",
+        "@Artbazar_marketing\n\n"
+        "Оплачивая Premium-доступ, вы принимаете условия публичной оферты."
+    )
+
+    offer_kb = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("📄 Публичная оферта (Premium)", url=OFFER_URL)]]
+    )
+
+    await update.message.reply_text(text, reply_markup=offer_kb)
+    await update.message.reply_text(
+        " ",
         reply_markup=premium_keyboard(),
     )
+
 
 async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
