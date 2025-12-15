@@ -22,6 +22,9 @@ BTN_PROFILE = "👤 Личный кабинет"
 BTN_PREMIUM = "❤️ Premium"
 BTN_PREMIUM_BENEFITS = "Что получу"
 
+# ✅ ДОБАВЛЕНО
+BTN_DOCS = "📄 Документы и условия"
+
 # =============================
 # KEYBOARDS
 # =============================
@@ -32,6 +35,7 @@ def main_menu_keyboard():
             [KeyboardButton(BTN_BIZ)],
             [KeyboardButton(BTN_ANALYSIS), KeyboardButton(BTN_NICHE)],
             [KeyboardButton(BTN_PROFILE)],
+            [KeyboardButton(BTN_DOCS)],
             [KeyboardButton(BTN_PREMIUM)],
         ],
         resize_keyboard=True,
