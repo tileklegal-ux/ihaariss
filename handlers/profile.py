@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ContextTypes
 
@@ -12,7 +13,7 @@ from handlers.user_texts import t
 from services.export_excel import build_excel_report
 from services.export_pdf import build_pdf_report
 
-# ✅ ВАЖНО: Premium берём из БД (single source of truth)
+# ✅ ЕДИНЫЙ И КАНОНИЧЕСКИЙ PREMIUM-GUARD
 from services.premium_checker import is_premium_user
 
 
@@ -23,22 +24,26 @@ from services.premium_checker import is_premium_user
 async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.user_data
     user_id = update.effective_user.id
+    lang = user_data.get("lang", "ru")
 
-    # ✅ Синхронизируем флаг Premium в user_data из БД
+    # ------------------------------------------------
+    # PREMIUM CHECK (single source of truth)
+    # ------------------------------------------------
     premium_now = bool(is_premium_user(user_id))
     user_data["is_premium"] = premium_now
 
     history = user_data.get("history", [])
-    lang = user_data.get("lang", "ru")
 
-    # ------------------------------
-    # 🆓 FREE
-    # ------------------------------
+    # ==================================================
+    # 🆓 FREE — ВИТРИНА PREMIUM
+    # ==================================================
     if not premium_now:
         summary = get_results_summary(context)
 
         lines = [
-            t(lang, "profile_free"),
+            "👤 Личный кабинет",
+            "",
+            "Текущий тариф: FREE",
             "",
             "Что уже сделано:",
         ]
@@ -51,10 +56,18 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines.extend([
             "",
-            "Ты можешь анализировать идеи и риски.",
-            "В Premium доступны:",
+            "Доступно сейчас:",
+            "• прохождение сценариев анализа",
+            "• базовые выводы и ориентиры",
+            "",
+            "Недоступно в FREE:",
             "• история результатов",
-            "• экспорт отчётов в PDF и Excel",
+            "• экспорт отчётов (PDF / Excel)",
+            "",
+            "⭐ В Premium:",
+            "• сохранение истории анализов",
+            "• скачивание отчётов в PDF",
+            "• работа с данными в Excel",
         ])
 
         await update.message.reply_text(
@@ -69,11 +82,14 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # ------------------------------
-    # ⭐ PREMIUM
-    # ------------------------------
+    # ==================================================
+    # ⭐ PREMIUM — ВЛАДЕНИЕ РЕЗУЛЬТАТАМИ
+    # ==================================================
+
     lines = [
-        t(lang, "profile_premium"),
+        "👤 Личный кабинет",
+        "",
+        "Текущий тариф: PREMIUM ⭐",
         "",
         "Последние результаты:",
     ]
@@ -98,7 +114,10 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "\n".join(lines),
         reply_markup=ReplyKeyboardMarkup(
             [
-                [KeyboardButton("📄 Скачать PDF"), KeyboardButton("📊 Скачать Excel")],
+                [
+                    KeyboardButton("📄 Скачать PDF"),
+                    KeyboardButton("📊 Скачать Excel"),
+                ],
                 [KeyboardButton(BTN_BACK)],
             ],
             resize_keyboard=True,
@@ -107,12 +126,22 @@ async def on_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==================================================
-# 📊 EXCEL EXPORT
+# 📊 EXCEL EXPORT (PREMIUM ONLY)
 # ==================================================
 
 async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    history = context.user_data.get("history", [])
+    user_id = update.effective_user.id
     lang = context.user_data.get("lang", "ru")
+
+    # backend-защита
+    if not is_premium_user(user_id):
+        await update.message.reply_text(
+            "Экспорт доступен только в Premium.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
+
+    history = context.user_data.get("history", [])
 
     if not history:
         await update.message.reply_text(
@@ -132,12 +161,22 @@ async def on_export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==================================================
-# 📄 PDF EXPORT
+# 📄 PDF EXPORT (PREMIUM ONLY)
 # ==================================================
 
 async def on_export_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    history = context.user_data.get("history", [])
+    user_id = update.effective_user.id
     lang = context.user_data.get("lang", "ru")
+
+    # backend-защита
+    if not is_premium_user(user_id):
+        await update.message.reply_text(
+            "Экспорт доступен только в Premium.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
+
+    history = context.user_data.get("history", [])
 
     if not history:
         await update.message.reply_text(
