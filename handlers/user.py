@@ -5,7 +5,10 @@ from telegram import (
     Update,
     ReplyKeyboardMarkup,
     KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
 )
+
 from telegram.ext import ContextTypes, MessageHandler, filters
 
 from handlers.user_texts import t
