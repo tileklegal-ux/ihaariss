@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import logging
 import warnings
 
@@ -25,9 +27,12 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------
 # middleware — записывать пользователя в БД
-# ВАЖНО: НЕ перехватывает команды (/start и т.п.)
+# ВАЖНО: ТОЛЬКО TEXT, иначе бот падает
 # ---------------------------------------------------------
 async def save_user_middleware(update, context):
+    if not update.message:
+        return
+
     if update.effective_user:
         u = update.effective_user
         create_or_update_user(
@@ -54,13 +59,13 @@ def main():
         .build()
     )
 
-    # 4) middleware — ТОЛЬКО не-командные апдейты
+    # 4) middleware — ТОЛЬКО ТЕКСТОВЫЕ сообщения (КЛЮЧЕВО)
     application.add_handler(
-        MessageHandler(filters.ALL & ~filters.COMMAND, save_user_middleware),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, save_user_middleware),
         group=-1
     )
 
-    # 5) handlers (user + owner + manager)
+    # 5) handlers (user + premium + ai chat)
     register_handlers_user(application)
 
     # 6) Запуск
