@@ -682,21 +682,14 @@ if not user_text:
 if user_text.startswith("/"):
     return
 
-if not is_user_premium(update.effective_user.id):
+if not
+is_user_premium(update.effective_user.id):
     return
 
-await
-update.message.chat.send_action("typing")
+await update.message.chat.send_action("typing")
 
-try:
-        answer = await ask_openai(user_text)
-        await update.message.reply_text(answer, reply_markup=ai_chat_keyboard())
-    except Exception:
-        await update.message.reply_text(
-            "⚠️ Не удалось получить ответ от AI. Попробуй ещё раз.",
-            reply_markup=ai_chat_keyboard(),
-        )
-
+answer = await ask_openai(user_text)
+await update.message.reply_text(answer)
 # =============================
 # ROUTER (ЕДИНЫЙ) — TEXT
 # =============================
