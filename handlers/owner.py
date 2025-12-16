@@ -1,10 +1,7 @@
-# handlers/owner.py
-
 import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ContextTypes,
-    CommandHandler,
     MessageHandler,
     filters,
     Application,
@@ -17,13 +14,13 @@ logger = logging.getLogger(__name__)
 # =========================
 # OWNER KEYBOARD
 # =========================
-
 BTN_OWNER_USERS = "👥 Пользователи"
 BTN_OWNER_PREMIUM = "💳 Premium"
 BTN_OWNER_MANAGERS = "🧑‍💼 Менеджеры"
 BTN_OWNER_BACK = "⬅️ Выйти в главное меню"
 
-def owner_keyboard():
+
+def owner_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton(BTN_OWNER_USERS), KeyboardButton(BTN_OWNER_PREMIUM)],
@@ -33,21 +30,25 @@ def owner_keyboard():
         resize_keyboard=True,
     )
 
-# =========================
-# /start — OWNER ENTRY POINT
-# =========================
 
-async def owner_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================
+# OWNER ENTRY POINT (вызывается из main.py)
+# =========================
+async def owner_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         role = get_user_role(update.effective_user.id)
     except Exception:
-        logger.exception("get_user_role failed in owner_start")
+        logger.exception("get_user_role failed in owner_panel")
         return
 
     if role != "owner":
         return
 
-    context.user_data.clear()
+    # не лезем в user FSM — просто чистим локальные данные
+    try:
+        context.user_data.clear()
+    except Exception:
+        pass
 
     await update.message.reply_text(
         "👑 Панель владельца\n\n"
@@ -59,10 +60,10 @@ async def owner_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=owner_keyboard(),
     )
 
+
 # =========================
 # OWNER TEXT ROUTER
 # =========================
-
 async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         role = get_user_role(update.effective_user.id)
@@ -73,7 +74,7 @@ async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if role != "owner":
         return
 
-    text = update.message.text or ""
+    text = (update.message.text or "").strip()
 
     if text == BTN_OWNER_USERS:
         await update.message.reply_text(
@@ -105,25 +106,19 @@ async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == BTN_OWNER_BACK:
+        # Возврат в общий /start (единый вход)
         await update.message.reply_text(
-            "Выход из панели владельца.",
-            reply_markup=ReplyKeyboardMarkup(
-                [[KeyboardButton("/start")]],
-                resize_keyboard=True,
-            ),
+            "Ок, выхожу в главное меню. Нажми /start",
+            reply_markup=ReplyKeyboardMarkup([[KeyboardButton("/start")]], resize_keyboard=True),
         )
         return
+
 
 # =========================
 # REGISTER
 # =========================
-
-def register_handlers_owner(app: Application):
-    """
-    OWNER handlers.
-    Должны регистрироваться РАНЬШЕ user.py
-    """
-    app.add_handler(CommandHandler("start", owner_start), group=1)
+def register_owner_handlers(app: Application):
+    # ВАЖНО: НЕ регистрируем /start здесь
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, owner_text_router),
         group=1,
