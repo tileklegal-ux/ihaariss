@@ -719,7 +719,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # КНОПКИ
     # =========================
     if "AI" in text:
-    await enter_ai_chat(update, context)
+        await enter_ai_chat(update, context)
         return
 
     if text == BTN_YES:
