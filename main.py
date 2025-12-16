@@ -50,7 +50,13 @@ logger = logging.getLogger(__name__)
 # ==================================================
 async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    role = get_user_role(user_id)
+
+    try:
+        role = get_user_role(user_id)
+    except Exception as e:
+        # ❗ БД временно недоступна — НЕ ЛОМАЕМ /start
+        logger.exception("Failed to get user role, fallback to user")
+        role = "user"
 
     if role == "owner":
         await owner_panel(update, context)
@@ -106,4 +112,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
