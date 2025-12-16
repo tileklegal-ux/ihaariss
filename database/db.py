@@ -25,9 +25,9 @@ def _is_postgres() -> bool:
 # ==================================================
 def get_connection():
     """
-    Возвращает подключение:
-    - Postgres на Railway, если задан DATABASE_URL
-    - иначе SQLite (локально)
+    Основное подключение:
+    - Postgres (Railway), если есть DATABASE_URL
+    - SQLite fallback
     """
     if _is_postgres():
         return psycopg2.connect(
@@ -37,6 +37,12 @@ def get_connection():
 
     os.makedirs(os.path.dirname(SQLITE_DB_PATH) or ".", exist_ok=True)
     return sqlite3.connect(SQLITE_DB_PATH)
+
+
+# 🔴 КРИТИЧЕСКИЙ АЛИАС
+# НУЖЕН ДЛЯ owner / manager / stats
+def get_db_connection():
+    return get_connection()
 
 
 def _placeholders() -> str:
@@ -53,10 +59,6 @@ def _execute(conn, query: str, params=()):
 # SCHEMA
 # ==================================================
 def init_db():
-    """
-    Безопасно создавать таблицу при старте.
-    На Railway это не ломает существующую Postgres-схему.
-    """
     conn = get_connection()
     try:
         if _is_postgres():
@@ -184,39 +186,6 @@ def set_role_by_telegram_id(telegram_id: int, role: str):
         conn.close()
 
 
-def get_user_by_username(username: str):
-    init_db()
-    if not username:
-        return None
-
-    username = username.lstrip("@")
-    conn = get_connection()
-    try:
-        ph = _placeholders()
-        cur = _execute(
-            conn,
-            f"""
-            SELECT telegram_id, username, first_name, role, is_premium, premium_until
-            FROM users
-            WHERE username = {ph}
-            """,
-            (username,),
-        )
-        row = cur.fetchone()
-        if not row:
-            return None
-        return {
-            "telegram_id": row[0],
-            "username": row[1],
-            "first_name": row[2],
-            "role": row[3],
-            "is_premium": bool(row[4]),
-            "premium_until": row[5],
-        }
-    finally:
-        conn.close()
-
-
 def is_user_premium(telegram_id: int) -> bool:
     init_db()
     conn = get_connection()
@@ -249,10 +218,6 @@ def is_user_premium(telegram_id: int) -> bool:
 
 
 def set_premium_by_telegram_id(telegram_id: int, days: int):
-    """
-    Активирует/продлевает Premium на N дней.
-    Нужен менеджеру.
-    """
     init_db()
     conn = get_connection()
     try:
