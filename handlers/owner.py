@@ -14,6 +14,8 @@ from database.db import (
     get_user_role,
 )
 
+from handlers.user_keyboards import main_menu_keyboard
+
 # ==================================================
 # OWNER KEYBOARDS
 # ==================================================
@@ -58,11 +60,10 @@ OWNER_START_TEXT = (
 )
 
 # ==================================================
-# OWNER ENTRY (вызывается из main.py)
+# OWNER ENTRY
 # ==================================================
 
 async def owner_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # выходим из любых пользовательских режимов
     context.user_data.pop("ai_chat_mode", None)
     context.user_data.pop("pm_state", None)
     context.user_data.pop("ta_state", None)
@@ -83,7 +84,6 @@ async def open_owner_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if get_user_role(update.effective_user.id) != "owner":
         return
 
-    # изоляция owner-режима
     context.user_data.pop("ai_chat_mode", None)
     context.user_data.pop("pm_state", None)
     context.user_data.pop("ta_state", None)
@@ -184,15 +184,20 @@ async def handle_owner_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await open_owner_menu(update, context)
 
 # ==================================================
-# EXIT OWNER MODE
+# EXIT OWNER MODE (FIXED)
 # ==================================================
 
 async def exit_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("owner_mode", None)
+    context.user_data.pop("ai_chat_mode", None)
+    context.user_data.pop("pm_state", None)
+    context.user_data.pop("ta_state", None)
+    context.user_data.pop("ns_step", None)
+    context.user_data.pop("growth", None)
 
     await update.message.reply_text(
         "Выход из панели владельца",
-        reply_markup=None,
+        reply_markup=main_menu_keyboard(),
     )
 
 # ==================================================
