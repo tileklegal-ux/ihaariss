@@ -709,7 +709,10 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text.startswith("/"):
         return
-
+# === ROLE ISOLATION FIX ===
+    role = get_user_role(update.effective_user.id)
+    if role != "user":
+        return
     # ==================================================
     # ✅ КРИТИЧЕСКИЙ ФИКС:
     # user.py НЕ ДОЛЖЕН обрабатывать owner/manager сообщения.
