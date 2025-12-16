@@ -52,7 +52,7 @@ from handlers.profile import on_profile, on_export_excel, on_export_pdf
 from handlers.documents import on_documents
 
 from services.openai_client import ask_openai
-
+from database.db import is_user_premium
 # ✅ ДОБАВЛЕНО РАНЕЕ (и теперь ИСПОЛЬЗУЕМ): роль пользователя
 from database.db import get_user_role
 
@@ -660,16 +660,12 @@ async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def enter_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_fsm(context)
-    context.user_data[AI_CHAT_MODE_KEY] = True
-
-    await update.message.reply_text(
-        "🤖 AI-чат активирован.\n\n"
-        "Пиши текст — я верну аналитическое зеркало.\n"
-        f"Чтобы выйти — нажми «{BTN_EXIT_CHAT}».",
-        reply_markup=ai_chat_keyboard(),
-    )
-
-async def exit_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_user_premium(update.effective_user.id):
+        await update.message.reply_text(
+            "🤖 AI-чат доступен только в Premium.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
     context.user_data.pop(AI_CHAT_MODE_KEY, None)
     clear_fsm(context)
 
@@ -681,12 +677,15 @@ async def exit_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = (update.message.text or "").strip()
     if not user_text:
-        return
+    return
 
-    if user_text.startswith("/"):
-        return
+if user_text.startswith("/"):
+    return
 
-    await update.message.chat.send_action("typing")
+if not is_user_premium(update.effective_user.id):
+    return
+
+await update.message.chat.send_action("typing")
 
     try:
         answer = await ask_openai(user_text)
