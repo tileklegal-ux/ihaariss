@@ -697,37 +697,43 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # команды не обрабатываем здесь
-    if user_text.startswith("/"):
-        return
+if user_text.startswith("/"):
+    return
 
-    role = get_user_role(update.effective_user.id)
+role = get_user_role(update.effective_user.id)
 
-    # owner / manager НЕ идут в text_router
-    if role in ("owner", "manager"):
-        return
+# owner / manager НЕ идут в text_router
+if role in ("owner", "manager"):
+    return
 
-    # дальше — обычный user
+# =========================
+# AI CHAT — обычный пользователь
+# =========================
 await ai_chat_text_handler(update, context)
 await exit_ai_chat(update, context)
 return
-    
 
-    if text == BTN_AI_CHAT:
-        await enter_ai_chat(update, context)
-        return
 
-    # YES/NO
-    if text == BTN_YES:
-        await on_yes(update, context)
-        return
-    if text == BTN_NO:
-        await on_no(update, context)
-        return
+# =========================
+# КНОПКИ
+# =========================
+if text == BTN_AI_CHAT:
+    await enter_ai_chat(update, context)
+    return
 
-    # ✅ ДОБАВЛЕНО: Документы и условия
-    if text in ("📄 Документы", "📄 Документы и условия", "ℹ️ О нас", "ℹ️ О проекте"):
-        await on_documents(update, context)
-        return
+# YES / NO
+if text == BTN_YES:
+    await on_yes(update, context)
+    return
+
+if text == BTN_NO:
+    await on_no(update, context)
+    return
+
+# Документы и условия
+if text in ("📄 Документы", "📄 Документы и условия"):
+    await show_documents(update, context)
+    return
 
     # Premium benefits
     if text == BTN_PREMIUM_BENEFITS:
