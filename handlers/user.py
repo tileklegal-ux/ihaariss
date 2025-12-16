@@ -683,7 +683,7 @@ if user_text.startswith("/"):
     return
 
 if not is_user_premium(update.effective_user.id):
-    return
+    return 
 
 await update.message.chat.send_action("typing")
 
