@@ -12,7 +12,8 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     filters,
-    Application, # <--- Обязательный импорт для register_handlers_user
+    Application,  # <--- Обязательный импорт для register_handlers_user
+    ApplicationHandlerStop,
 )
 
 from handlers.user_keyboards import (
@@ -77,7 +78,7 @@ NS_STEP_KEY = "ns_step"
 
 # премиум-флаг, который читает profile.py
 PREMIUM_KEY = "is_premium"
-AI_CHAT_MODE_KEY = "ai_chat_mode" # Используем для изоляции режима
+AI_CHAT_MODE_KEY = "ai_chat_mode"  # Используем для изоляции режима
 
 # =============================
 # START / ONBOARDING
@@ -85,7 +86,7 @@ AI_CHAT_MODE_KEY = "ai_chat_mode" # Используем для изоляции
 
 async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_fsm(context)
-    context.user_data.pop(AI_CHAT_MODE_KEY, None) # Очищаем режим при старте
+    context.user_data.pop(AI_CHAT_MODE_KEY, None)  # Очищаем режим при старте
 
     if "lang" not in context.user_data:
         context.user_data["lang"] = "ru"
@@ -639,7 +640,6 @@ async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=premium_keyboard(),
     )
 
-
 async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📌 Что ты получишь в Premium\n\n"
@@ -652,18 +652,14 @@ async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =============================
-# 💬 AI ЧАТ (Premium) — НОВЫЕ ИЗОЛИРОВАННЫЕ ХЕНДЛЕРЫ
+# 💬 AI ЧАТ (Premium) — ИЗОЛИРОВАННЫЕ ХЕНДЛЕРЫ
 # =============================
-
-def ai_chat_mode_active(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Проверяет, установлен ли флаг режима AI-чата в user_data."""
-    # Никакого await вне async def
-    return context.user_data.get(AI_CHAT_MODE_KEY) is True
 
 async def on_ai_chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Хендлер для входа в AI-чат."""
     clear_fsm(context)
     context.user_data[AI_CHAT_MODE_KEY] = True
+
     await update.message.reply_text(
         "🤖 AI-чат активирован.\n\n"
         "Напиши любой вопрос.\n"
@@ -671,11 +667,12 @@ async def on_ai_chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ai_chat_keyboard(),
     )
 
+    # Изоляция режима: не даём роутеру/меню обработать это же сообщение
+    raise ApplicationHandlerStop
+
 async def on_ai_chat_exit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Хендлер для выхода из AI-чата."""
-    # Очищаем флаг режима
     context.user_data.pop(AI_CHAT_MODE_KEY, None)
-    # Очищаем FSM, если был активен (хотя по логике FSM чистится при входе в AI-чат, но это для надежности)
     clear_fsm(context)
 
     await update.message.reply_text(
@@ -683,21 +680,30 @@ async def on_ai_chat_exit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_keyboard(),
     )
 
+    # Изоляция режима: не даём роутеру/меню обработать это же сообщение
+    raise ApplicationHandlerStop
+
 async def on_ai_chat_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Хендлер для обработки текстовых сообщений в режиме AI-чата."""
-    user_text = update.message.text.strip()
-
-    if not user_text:
+    if context.user_data.get(AI_CHAT_MODE_KEY) is not True:
         return
 
-    # защита: команды не пускаем
+    user_text = (update.message.text or "").strip()
+    if not user_text:
+        raise ApplicationHandlerStop
+
+    # защита: команды не пускаем (на всякий случай, хотя фильтр уже режет)
     if user_text.startswith("/"):
+        raise ApplicationHandlerStop
+
+    # кнопка выхода отлавливается отдельным хендлером; тут просто страховка
+    if user_text == BTN_EXIT_CHAT:
+        await on_ai_chat_exit(update, context)
         return
 
     await update.message.chat.send_action("typing")
 
     try:
-        # Используем ask_ai_chat для диалога с историей
         answer = await ask_ai_chat(
             user_id=update.effective_user.id,
             message=user_text,
@@ -710,11 +716,13 @@ async def on_ai_chat_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=ai_chat_keyboard(),
         )
 
+    # Ключевая штука: пока режим активен, дальше никто (меню/роутер) не должен срабатывать
+    raise ApplicationHandlerStop
+
 # =============================
-# ROUTER (ЕДИНЫЙ) — ОБНОВЛЕН
+# ROUTER (ЕДИНЫЙ)
 # =============================
 
-# Теперь этот роутер запускается ТОЛЬКО когда AI_CHAT_MODE_KEY НЕ АКТИВЕН.
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
 
@@ -749,7 +757,6 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_BACK:
         if context.user_data.get(PM_STATE_KEY) or context.user_data.get(GROWTH_KEY) or context.user_data.get(TA_STATE_KEY) or context.user_data.get(NS_STEP_KEY):
             clear_fsm(context)
-            # Возврат в хаб, если был активен любой FSM бизнес-анализа
             await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
             return
 
@@ -794,7 +801,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await premium_start(update, context)
         return
 
-    # Фоллбек (отвечает только если нет активных FSM и текст не совпал с кнопкой)
+    # Фоллбек
     lang = context.user_data.get("lang", "ru")
     await update.message.reply_text(t(lang, "choose_section"), reply_markup=main_menu_keyboard())
 
@@ -805,47 +812,44 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def register_handlers_user(app: Application):
     """
     Регистрирует все хендлеры пользователя.
-    Приоритет: AI-Выход (-1) > AI-Сообщение (-1) > AI-Вход (0) > Основной Роутер (0)
+
+    Гарантия изоляции AI-чата:
+    - AI-обработчики стоят в более высоком приоритете (group=0)
+    - когда ai_chat_mode=True, AI-хендлеры останавливают дальнейшую обработку апдейта
+      через ApplicationHandlerStop, поэтому меню/роутер не срабатывают.
     """
-    # 1. Хендлер для выхода из AI-чата (самый высокий приоритет для кнопки выхода)
+    # 0) AI: выход (самый точный матч)
     app.add_handler(
         MessageHandler(
-            filters.TEXT
-            & filters.Regex(f"^{BTN_EXIT_CHAT}$") # Скорректировано: реагируем только на кнопку выхода
-            & filters.User(ai_chat_mode_active),
+            filters.TEXT & filters.Regex(f"^{BTN_EXIT_CHAT}$"),
             on_ai_chat_exit,
-            group=-1, # Высокий приоритет
-        )
+        ),
+        group=0,
     )
 
-    # 2. Хендлер для сообщений внутри AI-чата (высокий приоритет для ЛЮБОГО текста в режиме)
+    # 1) AI: вход (кнопка из главного меню)
     app.add_handler(
         MessageHandler(
-            filters.TEXT
-            & ~filters.COMMAND
-            & filters.User(ai_chat_mode_active),
-            on_ai_chat_message,
-            group=-1, # Высокий приоритет
-        )
-    )
-
-    # 3. Хендлер для входа в AI-чат (как обычная кнопка меню)
-    app.add_handler(
-        MessageHandler(
-            filters.Regex(f"^{BTN_AI_CHAT}$")
-            & ~filters.User(ai_chat_mode_active),
+            filters.TEXT & filters.Regex(f"^{BTN_AI_CHAT}$"),
             on_ai_chat_start,
-            group=0,
-        )
+        ),
+        group=0,
     )
 
-    # 4. Основной роутер (срабатывает только когда AI-чат НЕ АКТИВЕН)
+    # 2) AI: любое текстовое сообщение (кроме команд) — обрабатывается только если режим активен
     app.add_handler(
         MessageHandler(
-            filters.TEXT
-            & ~filters.COMMAND
-            & ~filters.User(ai_chat_mode_active), # Главный изоляционный фильтр
+            filters.TEXT & ~filters.COMMAND,
+            on_ai_chat_message,
+        ),
+        group=0,
+    )
+
+    # 3) Основной роутер — всегда ниже приоритета AI (обработает текст, только если AI не остановил апдейт)
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
             text_router,
-            group=0,
-        )
+        ),
+        group=1,
     )
