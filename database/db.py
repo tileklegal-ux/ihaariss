@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime
 
-# ВАЖНО: Замените 'database/artbazar.db' на имя вашего файла базы данных, если оно другое
+# ВАЖНО: Убедитесь, что 'database/artbazar.db' - это верное имя вашего файла базы данных
 DB_PATH = "database/artbazar.db"
 
 
@@ -24,18 +24,10 @@ def get_connection():
 def _get_existing_columns(cur, table_name: str) -> set:
     cur.execute(f"PRAGMA table_info({table_name})")
     rows = cur.fetchall()
-    # PRAGMA table_info: (cid, name, type, notnull, dflt_value, pk)
     return {r[1] for r in rows}
 
 
 def _ensure_users_schema(cur):
-    """
-    ВАЖНО:
-    - если база уже существует и таблица users создана по старой схеме,
-      CREATE TABLE IF NOT EXISTS не добавит новые колонки.
-    - поэтому делаем безопасное добавление недостающих колонок через ALTER TABLE.
-    """
-    # таблица (на случай если её вообще нет)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         telegram_id INTEGER PRIMARY KEY,
@@ -51,34 +43,26 @@ def _ensure_users_schema(cur):
 
     cols = _get_existing_columns(cur, "users")
 
-    # добавляем недостающие колонки безопасно
     if "username" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN username TEXT")
-        cols.add("username")
 
     if "first_name" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN first_name TEXT")
-        cols.add("first_name")
 
     if "role" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
-        cols.add("role")
 
     if "is_premium" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN is_premium INTEGER DEFAULT 0")
-        cols.add("is_premium")
 
     if "premium_until" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN premium_until TEXT")
-        cols.add("premium_until")
 
     if "created_at" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN created_at TEXT")
-        cols.add("created_at")
 
     if "updated_at" not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN updated_at TEXT")
-        cols.add("updated_at")
 
 
 # ==================================================
@@ -93,7 +77,6 @@ def init_db():
 
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
-    # безопасное заполнение времени
     cur.execute("UPDATE users SET created_at = COALESCE(created_at, ?)", (now,))
     cur.execute("UPDATE users SET updated_at = COALESCE(updated_at, ?)", (now,))
 
@@ -183,10 +166,10 @@ def get_user_by_username(username: str):
 
     _ensure_users_schema(cur)
 
-    # 📌 ИСПРАВЛЕНИЕ: Очищаем входящий username и приводим к нижнему регистру для регистронезависимого поиска
+    # 📌 ИСПРАВЛЕНО: Очищаем входящий username и приводим к нижнему регистру
     username_lower = (username or "").lstrip("@").lower()
 
-    # 📌 ИСПРАВЛЕНИЕ: Используем LOWER(username) в SQL-запросе для сравнения в нижнем регистре
+    # 📌 ИСПРАВЛЕНО: Используем LOWER(username) в SQL-запросе для сравнения в нижнем регистре
     cur.execute(
         "SELECT telegram_id, username, role FROM users WHERE LOWER(username) = ?",
         (username_lower,),
@@ -259,4 +242,3 @@ def get_stats():
 
     conn.close()
     return stats
-    
