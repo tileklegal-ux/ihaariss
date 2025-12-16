@@ -1,5 +1,6 @@
 import logging
 import warnings
+import asyncio  # <--- ДОБАВЛЕНО ДЛЯ СБРОСА WEBHOOK
 
 from telegram import Update
 from telegram.ext import (
@@ -76,6 +77,9 @@ def main():
         .build()
     )
 
+    # 📌 ВРЕМЕННЫЙ СБРОС: ГАРАНТИРУЕТ, ЧТО НЕТ АКТИВНЫХ WEBHOOK/POLLING
+    asyncio.run(application.bot.delete_webhook()) # <--- НОВАЯ СТРОКА
+
     # /start — ВСЕГДА ПЕРВЫМ
     application.add_handler(
         CommandHandler("start", cmd_start_router),
@@ -106,3 +110,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
