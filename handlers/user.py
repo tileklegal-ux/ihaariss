@@ -82,6 +82,9 @@ NS_STEP_KEY = "ns_step"
 PREMIUM_KEY = "is_premium"
 AI_CHAT_MODE_KEY = "ai_chat_mode"  # Используем для изоляции режима
 
+# onboarding-flag для фикса первого шага
+ONBOARDING_KEY = "onboarding"
+
 # =============================
 # START / ONBOARDING
 # =============================
@@ -92,6 +95,9 @@ async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if "lang" not in context.user_data:
         context.user_data["lang"] = "ru"
+
+    # фиксируем, что пользователь в онбординге
+    context.user_data[ONBOARDING_KEY] = True
 
     user = update.effective_user
     name = user.first_name or user.username or "друг"
@@ -106,10 +112,12 @@ async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def on_yes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop(ONBOARDING_KEY, None)
     lang = context.user_data.get("lang", "ru")
     await update.message.reply_text(t(lang, "choose_section"), reply_markup=main_menu_keyboard())
 
 async def on_no(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop(ONBOARDING_KEY, None)
     await update.message.reply_text("Хорошо. Я рядом.", reply_markup=main_menu_keyboard())
 
 # =============================
@@ -689,14 +697,19 @@ async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 # =============================
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
+    user_text = update.message.text or ""
     text = user_text
 
     # команды не обрабатываем здесь
     if user_text.startswith("/"):
         return
 
-    role = get_user_role(update.effective_user.id)
+    # роль может падать из-за БД → не ломаем user-flow
+    try:
+        role = get_user_role(update.effective_user.id)
+    except Exception:
+        logger.exception("get_user_role failed in user.text_router, fallback to user")
+        role = "user"
 
     # owner / manager НЕ идут в text_router
     if role in ("owner", "manager"):
