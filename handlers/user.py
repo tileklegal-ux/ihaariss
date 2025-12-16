@@ -689,29 +689,25 @@ async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 # =============================
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
-
-    if not text:
+    if not update.message or not update.message.text:
         return
 
-    if text.startswith("/"):
+    user_text = update.message.text.strip()
+    if not user_text:
         return
-# === ROLE ISOLATION FIX ===
-    role = get_user_role(update.effective_user.id)
-    if role != "user":
+
+    # команды не обрабатываем здесь
+    if user_text.startswith("/"):
         return
-    # ==================================================
-    # ✅ КРИТИЧЕСКИЙ ФИКС:
-    # user.py НЕ ДОЛЖЕН обрабатывать owner/manager сообщения.
-    # Иначе после owner.py (group=1..2) снова сработает user.py (group=4)
-    # и перерисует клавиатуру на пользовательскую.
-    # ==================================================
+
     role = get_user_role(update.effective_user.id)
+
+    # owner / manager НЕ идут в text_router
     if role in ("owner", "manager"):
         return
 
-    if context.user_data.get(AI_CHAT_MODE_KEY) is True:
-        if text == BTN_EXIT_CHAT:
+    # дальше — обычный user
+    await ai_chat_text_handler(update, context)
             await exit_ai_chat(update, context)
             return
         await ai_chat_text_handler(update, context)
