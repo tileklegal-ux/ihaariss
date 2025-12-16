@@ -657,6 +657,7 @@ async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =============================
 # 💬 AI ЧАТ (Premium) — MODE
 # =============================
+
 async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = (update.message.text or "").strip()
 
@@ -673,12 +674,15 @@ async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     try:
         answer = await ask_openai(user_text)
-        await update.message.reply_text(answer, reply_markup=ai_chat_keyboard())
-    except Exception:
         await update.message.reply_text(
-            "⚠️ Не удалось получить ответ",
-            reply_markup=ai_chat_keyboard(),
+            answer,
+            reply_markup=ReplyKeyboardMarkup(
+                [[KeyboardButton(BTN_BACK)]],
+                resize_keyboard=True,
+            ),
         )
+    except Exception:
+        await update.message.reply_text("⚠️ Ошибка AI. Попробуй позже.")
 
 # =============================
 # ROUTER (ЕДИНЫЙ) — TEXT
