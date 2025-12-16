@@ -705,9 +705,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # =========================
     # AI CHAT — обычный пользователь
     # =========================
-    await ai_chat_text_handler(update, context)
-    await exit_ai_chat(update, context)
-    return
+    
 
     # =========================
     # КНОПКИ
@@ -795,7 +793,16 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
     await update.message.reply_text(t(lang, "choose_section"), reply_markup=main_menu_keyboard())
 
+    if text == BTN_PREMIUM:
+    await premium_start(update, context)
+    return
 
+# Фоллбек (отвечает только если нет ...)
+lang = context.user_data.get("lang", ...)
+await update.message.reply_text(...)
+    # ===== AI CHAT FALLBACK =====
+await ai_chat_text_handler(update, context)
+    return
 def register_handlers_user(app: Application):
     """
     Регистрирует пользовательский текстовый роутер.
