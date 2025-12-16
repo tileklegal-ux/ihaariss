@@ -1,4 +1,4 @@
-import sqlite3
+Import sqlite3
 from datetime import datetime
 
 DB_PATH = "database/artbazar.db"
@@ -182,11 +182,13 @@ def get_user_by_username(username: str):
 
     _ensure_users_schema(cur)
 
-    username = (username or "").lstrip("@")
+    # 📌 ИЗМЕНЕНИЕ: Очищаем входящий username и приводим к нижнему регистру для регистронезависимого поиска
+    username_lower = (username or "").lstrip("@").lower()
 
+    # 📌 ИЗМЕНЕНИЕ: Используем LOWER(username) в SQL-запросе для сравнения в нижнем регистре
     cur.execute(
-        "SELECT telegram_id, username, role FROM users WHERE username = ?",
-        (username,),
+        "SELECT telegram_id, username, role FROM users WHERE LOWER(username) = ?",
+        (username_lower,),
     )
     row = cur.fetchone()
     conn.close()
