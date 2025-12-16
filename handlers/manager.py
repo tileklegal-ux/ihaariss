@@ -11,7 +11,11 @@ from telegram.ext import (
     filters,
 )
 
-from database.db import get_user_role, get_user_by_username, set_premium_by_telegram_id
+from database.db import (
+    get_user_role,
+    get_user_by_username,
+    set_premium_by_telegram_id,
+)
 
 # ==================================================
 # BUTTONS
@@ -66,10 +70,16 @@ async def on_activate_premium(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 🔒 только менеджер
     if get_user_role(update.effective_user.id) != "manager":
         return
 
+    # ❗ НЕ в FSM → просто вернуть клавиатуру менеджера
     if not context.user_data.get(FSM_WAIT_PREMIUM_INPUT):
+        await update.message.reply_text(
+            "🧑‍💼 Панель менеджера",
+            reply_markup=manager_keyboard(),
+        )
         return
 
     text = (update.message.text or "").strip()
