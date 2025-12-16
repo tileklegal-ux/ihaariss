@@ -1,46 +1,59 @@
 # handlers/owner.py
-
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
+
+from database.db import get_user_role
+from handlers.owner_stats import show_owner_stats
+from handlers.role_actions import add_manager, remove_manager
 
 BTN_OWNER_STATS = "📊 Общая статистика"
-BTN_OWNER_ADD_MANAGER = "➕ Добавить менеджера"
-BTN_OWNER_REMOVE_MANAGER = "➖ Удалить менеджера"
+BTN_ADD_MANAGER = "➕ Добавить менеджера"
+BTN_REMOVE_MANAGER = "➖ Удалить менеджера"
+BTN_EXIT = "⬅️ Выйти"
 
 def owner_keyboard():
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton(BTN_OWNER_STATS)],
-            [KeyboardButton(BTN_OWNER_ADD_MANAGER)],
-            [KeyboardButton(BTN_OWNER_REMOVE_MANAGER)],
+            [KeyboardButton(BTN_ADD_MANAGER), KeyboardButton(BTN_REMOVE_MANAGER)],
+            [KeyboardButton(BTN_EXIT)],
         ],
         resize_keyboard=True,
     )
 
-async def owner_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+async def owner_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👑 Панель владельца\n\n"
+        "Доступ: статистика и управление менеджерами.",
+        reply_markup=owner_keyboard(),
+    )
 
-    if text == "/start":
-        await update.message.reply_text(
-            "👑 Панель владельца\n\n"
-            "Доступ:\n"
-            "— общая статистика\n"
-            "— управление менеджерами\n\n"
-            "Пользовательские функции недоступны.",
-            reply_markup=owner_keyboard(),
-        )
+async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    role = get_user_role(update.effective_user.id)
+    if role != "owner":
         return
+
+    text = update.message.text
 
     if text == BTN_OWNER_STATS:
-        await update.message.reply_text("📊 Здесь будет общая статистика")
+        await show_owner_stats(update, context)
         return
 
-    if text == BTN_OWNER_ADD_MANAGER:
-        await update.message.reply_text("➕ Логика добавления менеджера")
+    if text == BTN_ADD_MANAGER:
+        await add_manager(update, context)
         return
 
-    if text == BTN_OWNER_REMOVE_MANAGER:
-        await update.message.reply_text("➖ Логика удаления менеджера")
+    if text == BTN_REMOVE_MANAGER:
+        await remove_manager(update, context)
         return
 
-    await update.message.reply_text("Команда недоступна в панели владельца.")
+    if text == BTN_EXIT:
+        await update.message.reply_text("Выход из панели владельца.")
+        return
+
+def register_handlers_owner(app):
+    app.add_handler(CommandHandler("owner", owner_start), group=1)
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, owner_text_router),
+        group=1,
+    )
