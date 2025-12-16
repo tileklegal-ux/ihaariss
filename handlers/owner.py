@@ -14,8 +14,6 @@ from database.db import (
     get_user_role,
 )
 
-from handlers.user_keyboards import main_menu_keyboard
-
 # ==================================================
 # OWNER KEYBOARDS
 # ==================================================
@@ -24,7 +22,6 @@ OWNER_MENU = ReplyKeyboardMarkup(
     [
         ["➕ Добавить менеджера", "➖ Удалить менеджера"],
         ["📊 Статистика"],
-        # 📌 УДАЛЕНО: Кнопка "⬅️ Выйти в главное меню"
     ],
     resize_keyboard=True,
 )
@@ -95,7 +92,6 @@ async def open_owner_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👑 Панель владельца",
         reply_markup=OWNER_MENU,
     )
-    return
 
 # ==================================================
 # FSM STARTERS
@@ -156,7 +152,13 @@ async def handle_owner_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     mode = context.user_data.get("owner_mode")
+
+    # ❗ НЕ В FSM → просто вернуть меню владельца
     if not mode:
+        await update.message.reply_text(
+            "👑 Панель владельца",
+            reply_markup=OWNER_MENU,
+        )
         return
 
     raw = update.message.text.strip().lstrip("@")
@@ -167,7 +169,11 @@ async def handle_owner_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         user = get_user_by_username(raw)
         if not user:
-            await update.message.reply_text("❌ Пользователь не найден")
+            await update.message.reply_text(
+                "❌ Пользователь не найден",
+                reply_markup=OWNER_MENU,
+            )
+            context.user_data.pop("owner_mode", None)
             return
         telegram_id = user["telegram_id"]
 
@@ -183,15 +189,6 @@ async def handle_owner_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     context.user_data.pop("owner_mode", None)
     await open_owner_menu(update, context)
-
-# ==================================================
-# EXIT OWNER MODE (REMOVED)
-# ==================================================
-
-# 📌 УДАЛЕНО: Функция exit_owner удалена, так как кнопка, которая ее вызывала, удалена.
-# async def exit_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     # ... (вся логика удаления состояний и вывода клавиатуры main_menu_keyboard) ...
-#     return 
 
 # ==================================================
 # REGISTER
@@ -217,12 +214,6 @@ def register_owner_handlers(app):
         MessageHandler(filters.Regex("^📊 Статистика$"), show_stats),
         group=1,
     )
-
-    # 📌 УДАЛЕНО: Хендлер на кнопку "⬅️ Выйти в главное меню"
-    # app.add_handler(
-    #     MessageHandler(filters.Regex("^⬅️ Выйти в главное меню$"), exit_owner),
-    #     group=1,
-    # )
 
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_owner_input),
