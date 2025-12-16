@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -9,6 +11,7 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     filters,
+    Application,
 )
 
 from database.db import (
@@ -16,6 +19,8 @@ from database.db import (
     get_user_by_username,
     set_premium_by_telegram_id,
 )
+
+logger = logging.getLogger(__name__)
 
 # ==================================================
 # BUTTONS
@@ -49,6 +54,31 @@ def premium_profile_keyboard():
     )
 
 # ==================================================
+# ENTRY POINT (вызывается из main.py)
+# ==================================================
+
+async def manager_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Точка входа менеджера. Вызывается из main.py, если role == manager.
+    """
+    try:
+        role = get_user_role(update.effective_user.id)
+    except Exception:
+        logger.exception("get_user_role failed in manager_panel")
+        return
+
+    if role != "manager":
+        return
+
+    # сбрасываем локальный FSM менеджера
+    context.user_data.pop(FSM_WAIT_PREMIUM_INPUT, None)
+
+    await update.message.reply_text(
+        "🧑‍💼 Панель менеджера",
+        reply_markup=manager_keyboard(),
+    )
+
+# ==================================================
 # ACTIONS
 # ==================================================
 
@@ -74,12 +104,8 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if get_user_role(update.effective_user.id) != "manager":
         return
 
-    # ❗ НЕ в FSM → просто вернуть клавиатуру менеджера
+    # Если менеджер НЕ в сценарии ввода — НЕ перехватываем его обычные сообщения
     if not context.user_data.get(FSM_WAIT_PREMIUM_INPUT):
-        await update.message.reply_text(
-            "🧑‍💼 Панель менеджера",
-            reply_markup=manager_keyboard(),
-        )
         return
 
     text = (update.message.text or "").strip()
@@ -148,7 +174,7 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=premium_profile_keyboard(),
         )
     except Exception:
-        pass
+        logger.exception("Failed to notify user about premium activation")
 
     await update.message.reply_text(
         f"✅ Premium активирован\n\n"
@@ -161,16 +187,20 @@ async def on_premium_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # REGISTER
 # ==================================================
 
-def register_manager_handlers(app):
+def register_manager_handlers(app: Application):
+    """
+    ВАЖНО:
+    - НЕ регистрируем /start здесь
+    - manager handlers должны жить в group=2 (между owner и user)
+    """
+    # кнопка "Активировать Premium"
     app.add_handler(
-        MessageHandler(
-            filters.Regex(f"^{BTN_ACTIVATE_PREMIUM}$"),
-            on_activate_premium,
-        ),
-        group=1,
+        MessageHandler(filters.Regex(f"^{BTN_ACTIVATE_PREMIUM}$"), on_activate_premium),
+        group=2,
     )
 
+    # ввод "@username дни" (только когда FSM_WAIT_PREMIUM_INPUT=True)
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_premium_input),
-        group=3,
+        group=2,
     )
