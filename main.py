@@ -1,6 +1,5 @@
 import logging
 import warnings
-import asyncio  # <--- ДОБАВЛЕНО ДЛЯ СБРОСА WEBHOOK
 
 from telegram import Update
 from telegram.ext import (
@@ -76,9 +75,6 @@ def main():
         .token(BOT_TOKEN)
         .build()
     )
-
-    # 📌 СТРОКА СБРОСА: Выполнится один раз и очистит ошибку 409
-    asyncio.run(application.bot.delete_webhook()) 
 
     # /start — ВСЕГДА ПЕРВЫМ
     application.add_handler(
