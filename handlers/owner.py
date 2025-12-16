@@ -24,7 +24,7 @@ OWNER_MENU = ReplyKeyboardMarkup(
     [
         ["➕ Добавить менеджера", "➖ Удалить менеджера"],
         ["📊 Статистика"],
-        ["⬅️ Выйти в главное меню"], 
+        # 📌 УДАЛЕНО: Кнопка "⬅️ Выйти в главное меню"
     ],
     resize_keyboard=True,
 )
@@ -185,24 +185,13 @@ async def handle_owner_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await open_owner_menu(update, context)
 
 # ==================================================
-# EXIT OWNER MODE (FIXED)
+# EXIT OWNER MODE (REMOVED)
 # ==================================================
 
-async def exit_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.pop("owner_mode", None)
-    context.user_data.pop("ai_chat_mode", None)
-    context.user_data.pop("pm_state", None)
-    context.user_data.pop("ta_state", None)
-    context.user_data.pop("ns_step", None)
-    context.user_data.pop("growth", None)
-
-    await update.message.reply_text(
-        "Выход из панели владельца",
-        reply_markup=main_menu_keyboard(),
-    )
-    
-    # ФИКС: Остановка распространения, устраняющая двойное сообщение.
-    return 
+# 📌 УДАЛЕНО: Функция exit_owner удалена, так как кнопка, которая ее вызывала, удалена.
+# async def exit_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     # ... (вся логика удаления состояний и вывода клавиатуры main_menu_keyboard) ...
+#     return 
 
 # ==================================================
 # REGISTER
@@ -229,10 +218,11 @@ def register_owner_handlers(app):
         group=1,
     )
 
-    app.add_handler(
-        MessageHandler(filters.Regex("^⬅️ Выйти в главное меню$"), exit_owner),
-        group=1,
-    )
+    # 📌 УДАЛЕНО: Хендлер на кнопку "⬅️ Выйти в главное меню"
+    # app.add_handler(
+    #     MessageHandler(filters.Regex("^⬅️ Выйти в главное меню$"), exit_owner),
+    #     group=1,
+    # )
 
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_owner_input),
