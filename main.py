@@ -19,11 +19,10 @@ from handlers.user import (
 # MANAGER
 from handlers.manager import (
     register_manager_handlers,
-    manager_keyboard,
 )
 
 # OWNER
-from handlers.owner import register_owner_handlers
+from handlers.owner import register_handlers_owner
 
 logging.basicConfig(
     format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
@@ -33,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==================================================
-# /start — ЕДИНАЯ ТОЧКА ВХОДА
+# /start — ROUTER ТОЛЬКО ДЛЯ USER
 # ==================================================
 async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -43,11 +42,10 @@ async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         role = "user"
 
-    # OWNER и MANAGER НЕ ОБРАБАТЫВАЮТСЯ ТУТ
+    # OWNER и MANAGER сюда не заходят
     if role in ("owner", "manager"):
         return
 
-    # USER
     await cmd_start_user(update, context)
 
 
@@ -57,19 +55,19 @@ async def cmd_start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # /start router — ТОЛЬКО ДЛЯ USER
-    application.add_handler(
-        CommandHandler("start", cmd_start_router),
-        group=2,
-    )
-
     # OWNER — САМЫЙ ПЕРВЫЙ
-    register_owner_handlers(application)
+    register_handlers_owner(application)
 
     # MANAGER
     register_manager_handlers(application)
 
-    # USER
+    # USER /start
+    application.add_handler(
+        CommandHandler("start", cmd_start_router),
+        group=3,
+    )
+
+    # USER остальной текст
     register_handlers_user(application)
 
     application.run_polling()
