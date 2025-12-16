@@ -589,4 +589,326 @@ async def ns_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         resource_level = "ограниченно"
         if res in (NS_RESOURCE_MONEY, NS_RESOURCE_TIME, NS_RESOURCE_EXPERT):
-            resource_lev
+            resource_level = "достаточно"
+        if res == NS_RESOURCE_MIN:
+            resource_level = "минимально"
+
+        # Сохранение
+        save_insights(
+            context,
+            last_scenario="🔎 Ниша",
+            last_verdict=verdict,
+            risk_level=risk_level,
+            demand_type=demand_type,
+            seasonality=seasonality,
+            competition=competition_insight, # Исправлено: использование переменной competition_insight
+            resource=resource_level,
+        )
+
+        clear_fsm(context)
+
+        base_text = (
+            f"Вердикт: {verdict}\n\n"
+            "Вердикт — ориентир, а не рекомендация.\n"
+        )
+
+        ai_prompt = (
+            "Дай короткий аналитический разбор по выбору направления (ниша).\n"
+            "Запрещено: советы, обещания, прогнозы, директивы.\n"
+            "Нужно: 1) наблюдения 2) риски 3) варианты проверки.\n"
+            "В конце: это ориентир, а не рекомендация; решение за пользователем.\n\n"
+            f"Зачем={goal}\n"
+            f"Формат={fmt}\n"
+            f"Спрос={demand}\n"
+            f"Сезонность={season}\n"
+            f"Конкуренция={comp}\n"
+            f"Ресурс={res}\n"
+            f"Ориентир-вердикт={verdict}\n"
+        )
+
+        ai_text = await ask_openai(ai_prompt)
+
+        await update.message.reply_text(
+            base_text + "\nКороткий разбор:\n" + ai_text,
+            reply_markup=main_menu_keyboard(),
+        )
+
+# =============================
+# ❤️ PREMIUM
+# =============================
+
+async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_fsm(context)
+
+    OFFER_URL = "https://www.notion.so/Premium-2c901cd07aa7808b85ddec9d8019e742?source=copy_link"
+
+    # Исправлены орфографические ошибки в числах (тире заменены на обычный минус)
+    text = (
+        "❤️ Premium\n\n"
+        "Быстро и по делу: цены + подключение.\n\n"
+        "💳 Стоимость:\n"
+        "1 месяц — 499 сом / 2 499 ₸ / 449 ₽\n"
+        "6 месяцев — 2 699 сом / 13 499 ₸ / 2 399 ₽\n"
+        "12 месяцев — 4 999 сом / 24 999 ₸ / 4 499 ₽\n\n"
+        "📩 Подключение через менеджера:\n"
+        "@Artbazar_marketing\n\n"
+        "Оплачивая Premium-доступ, вы принимаете условия публичной оферты."
+    )
+
+    offer_kb = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("📄 Публичная оферта (Premium)", url=OFFER_URL)]]
+    )
+
+    await update.message.reply_text(text, reply_markup=offer_kb)
+    # Удален лишний пустой ответ, который просто менял клавиатуру.
+    # Клавиатура Premium должна быть прикреплена к предыдущему сообщению,
+    # но поскольку в оригинале она была во втором сообщении, сохраним эту структуру:
+    await update.message.reply_text(
+        "Выбери действие:", # Более осмысленная фраза
+        reply_markup=premium_keyboard(),
+    )
+
+
+async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📌 Что ты получишь в Premium\n\n"
+        "1) Глубже разбор рисков\n"
+        "2) История результатов\n"
+        "3) Экспорт PDF / Excel\n\n"
+        "Это ориентир, а не рекомендация.\n"
+        "Решение остаётся за тобой.",
+        # Клавиатура BTN_BACK должна возвращать в Premium Menu
+        reply_markup=premium_keyboard(), 
+    )
+
+# =============================
+# 💬 AI ЧАТ ФУНКЦИИ
+# Вынесены, чтобы избежать конфликтов в роутере
+# =============================
+
+async def ai_chat_enter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Активация режима AI-чата."""
+    context.user_data["ai_chat_mode"] = True
+    await update.message.reply_text(
+        "🤖 AI-чат активирован.\n\n"
+        "Напиши любой вопрос.\n"
+        f"Чтобы выйти — нажми «{BTN_EXIT_CHAT}».",
+        reply_markup=ai_chat_keyboard(),
+    )
+
+async def ai_chat_exit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Выход из режима AI-чата."""
+    context.user_data.pop("ai_chat_mode", None)
+    await update.message.reply_text(
+        "Ты вышел из AI-чата.",
+        reply_markup=main_menu_keyboard(),
+    )
+
+async def ai_chat_handler_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик сообщений внутри режима AI-чата (FSM-независимый)."""
+    text = update.message.text or ""
+
+    # Выход из AI-чата (если пришла кнопка)
+    if text in (BTN_BACK, BTN_EXIT_CHAT):
+        # В этом режиме кнопка должна быть обработана как выход
+        await ai_chat_exit(update, context)
+        return
+
+    user_text = text.strip()
+
+    if not user_text:
+        return
+
+    # Защита: команды не пускаем
+    if user_text.startswith("/"):
+        await update.message.reply_text(
+             "Пожалуйста, введи вопрос текстом. Команды в этом режиме игнорируются."
+        )
+        return
+    
+    # Запрос к AI
+    # Импорт тут не нужен, так как он уже есть в начале файла
+    # from services.openai_client import ask_ai_chat 
+
+    await update.message.chat.send_action("typing")
+
+    try:
+        
+        ai_prompt = (
+            "Ты — AI-ассистент Essence Dev.\n"
+            "Ты помогаешь предпринимателям спокойно анализировать идеи, но не даешь советов и прогнозов.\n"
+            "Формат: 1) Наблюдения, 2) Риски, 3) Варианты проверки.\n"
+            "В конце: это ориентир, а не рекомендация; решение за пользователем.\n\n"
+            f"Текст пользователя:\n{user_text}"
+        )
+
+        answer = await ask_openai(ai_prompt)
+
+        await update.message.reply_text(answer, reply_markup=ai_chat_keyboard())
+
+    except Exception as e:
+        logger.error(f"AI Chat Error: {e}")
+        await update.message.reply_text(
+            "⚠️ Не удалось получить ответ от AI. Попробуй ещё раз.",
+            reply_markup=ai_chat_keyboard(),
+        )
+    
+    return # Выход из роутера после обработки сообщения в AI-чате
+
+# =============================
+# ROUTER (ЕДИНЫЙ И СТРУКТУРИРОВАННЫЙ)
+# =============================
+
+async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text or ""
+    
+    # ------------------------------------
+    # 0. СБРОС AI CHAT MODE (ОБРАБОТКА КНОПОК)
+    # ------------------------------------
+    # При нажатии на любую кнопку главного меню или FSM-сценария,
+    # мы сбрасываем флаг AI-чата, чтобы не сработала AI-логика.
+    
+    is_fsm_or_main_menu_button = text in (
+        BTN_BIZ, BTN_PM, BTN_GROWTH, BTN_ANALYSIS, BTN_NICHE, 
+        BTN_PROFILE, BTN_PREMIUM, BTN_PREMIUM_BENEFITS, BTN_AI_CHAT, "📊 Скачать Excel", "📄 Скачать PDF", "📄 Документы", "📄 Документы и условия", "ℹ️ О нас", "ℹ️ О проекте"
+    )
+
+    if context.user_data.get("ai_chat_mode") and (is_fsm_or_main_menu_button or text == BTN_BACK or text == BTN_EXIT_CHAT):
+        # Выход из режима AI-чата, если нажата любая другая кнопка
+        await ai_chat_exit(update, context)
+        # После выхода из чата, роутер продолжает работу, чтобы обработать нажатую кнопку.
+    elif not is_fsm_or_main_menu_button:
+        # Сброс флага, если он вдруг остался без причины
+        context.user_data.pop("ai_chat_mode", None)
+
+    # ------------------------------------
+    # 1. AI CHAT MODE (ПРИОРИТЕТ)
+    # ------------------------------------
+    if context.user_data.get("ai_chat_mode"):
+        # Если сообщение пришло в режиме AI-чата, передаем его специальному обработчику
+        # Обработчик ai_chat_handler_mode сам решает, как обрабатывать BTN_EXIT_CHAT/BTN_BACK
+        # но мы это уже сделали выше в блоке 0, поэтому тут только текстовый ввод.
+        
+        # Если мы вышли из чата в блоке 0 (например, нажав BTN_BACK), то ai_chat_mode уже False.
+        # Если же это чистый текстовый ввод, то ai_chat_mode True.
+        
+        if text not in (BTN_BACK, BTN_EXIT_CHAT):
+             # Это обычный текстовый ввод, обрабатываем его как чат
+             await ai_chat_handler_mode(update, context)
+             return # Выход, чтобы не сработала FSM-логика на введенный текст
+
+    # ------------------------------------
+    # 2. FSM (ПРИОРИТЕТ)
+    # ------------------------------------
+    # Обработка кнопки "Назад" внутри FSM
+    if text == BTN_BACK:
+        if context.user_data.get(PM_STATE_KEY) or context.user_data.get(GROWTH_KEY) or context.user_data.get(TA_STATE_KEY):
+            clear_fsm(context)
+            await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
+            return
+        if context.user_data.get(NS_STEP_KEY):
+            clear_fsm(context)
+            await update.message.reply_text("Главное меню", reply_markup=main_menu_keyboard())
+            return
+        
+        # Общий BACK
+        await update.message.reply_text("Главное меню", reply_markup=main_menu_keyboard())
+        return
+
+    # Обработка FSM-ввода
+    if context.user_data.get(PM_STATE_KEY):
+        await pm_handler(update, context)
+        return
+    
+    if context.user_data.get(GROWTH_KEY):
+        await growth_handler(update, context)
+        return
+    
+    if context.user_data.get(TA_STATE_KEY):
+        await ta_handler(update, context)
+        return
+    
+    if context.user_data.get(NS_STEP_KEY):
+        await ns_handler(update, context)
+        return
+
+    # ------------------------------------
+    # 3. СПЕЦИАЛЬНЫЕ КОМАНДЫ И КНОПКИ (NON-FSM)
+    # ------------------------------------
+    
+    # Онбординг (YES/NO)
+    if text == BTN_YES:
+        await on_yes(update, context)
+        return
+    if text == BTN_NO:
+        await on_no(update, context)
+        return
+
+    # Главное меню (вход в FSM-сценарии или разделы)
+    if text == BTN_BIZ:
+        await on_business_analysis(update, context)
+        return
+    if text == BTN_PM:
+        await pm_start(update, context)
+        return
+    if text == BTN_GROWTH:
+        await growth_start(update, context)
+        return
+    if text == BTN_ANALYSIS:
+        await ta_start(update, context)
+        return
+    if text == BTN_NICHE:
+        await ns_start(update, context)
+        return
+    if text == BTN_PROFILE:
+        await on_profile(update, context)
+        return
+    if text == BTN_PREMIUM:
+        await premium_start(update, context)
+        return
+    
+    # Вход в AI-чат
+    if text == BTN_AI_CHAT:
+        # Уже обработано в блоке 0, но на всякий случай, если код дойдет досюда
+        await ai_chat_enter(update, context)
+        return
+        
+    # Премиум-меню
+    if text == BTN_PREMIUM_BENEFITS:
+        await premium_benefits(update, context)
+        return
+    
+    # Экспорт (Premium кабинет)
+    if text == "📊 Скачать Excel":
+        await on_export_excel(update, context)
+        return
+    if text == "📄 Скачать PDF":
+        await on_export_pdf(update, context)
+        return
+
+    # ✅ ДОБАВЛЕНО: Документы и условия
+    if text in ("📄 Документы", "📄 Документы и условия", "ℹ️ О нас", "ℹ️ О проекте"):
+        await on_documents(update, context)
+        return
+
+    # ------------------------------------
+    # 4. ФОЛЛБЕК
+    # ------------------------------------
+    # ⚠️ ЭТОТ БЛОК ДОЛЖЕН БЫТЬ ВНУТРИ ASYNC DEF text_router
+    lang = context.user_data.get("lang", "ru")
+    await update.message.reply_text(t(lang, "choose_section"), reply_markup=main_menu_keyboard())
+
+# =============================
+# REGISTER
+# =============================
+
+def register_handlers_user(app):
+    # Добавление обработчика для команды /start
+    from telegram.ext import CommandHandler
+    app.add_handler(CommandHandler("start", cmd_start_user))
+    
+    # Добавление основного обработчика текстовых сообщений
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
+    
+    # Обработчики для других типов сообщений (необязательно, но для полноты)
+    # app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.AUDIO | filters.LOCATION, some_fallback_handler))
