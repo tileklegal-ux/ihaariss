@@ -657,39 +657,29 @@ async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =============================
 # 💬 AI ЧАТ (Premium) — MODE
 # =============================
-
-async def enter_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    clear_fsm(context)
-    if not is_user_premium(update.effective_user.id):
-        await update.message.reply_text(
-            "🤖 AI-чат доступен только в Premium.",
-            reply_markup=main_menu_keyboard(),
-        )
-        return
-    context.user_data.pop(AI_CHAT_MODE_KEY, None)
-    clear_fsm(context)
-
-    await update.message.reply_text(
-        "Ты вышел из AI-чата.",
-        reply_markup=main_menu_keyboard(),
-    )
-
 async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = (update.message.text or "").strip()
-if not user_text:
-    return
 
-if user_text.startswith("/"):
-    return
+    if not user_text:
+        return
 
-if not
-is_user_premium(update.effective_user.id):
-    return
+    if user_text.startswith("/"):
+        return
 
-await update.message.chat.send_action("typing")
+    if not is_user_premium(update.effective_user.id):
+        return
 
-answer = await ask_openai(user_text)
-await update.message.reply_text(answer)
+    await update.message.chat.send_action("typing")
+
+    try:
+        answer = await ask_openai(user_text)
+        await update.message.reply_text(answer, reply_markup=ai_chat_keyboard())
+    except Exception:
+        await update.message.reply_text(
+            "⚠️ Не удалось получить ответ",
+            reply_markup=ai_chat_keyboard(),
+        )
+
 # =============================
 # ROUTER (ЕДИНЫЙ) — TEXT
 # =============================
