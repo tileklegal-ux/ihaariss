@@ -12,8 +12,7 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     filters,
-    Application,  # <--- Обязательный импорт для register_handlers_user
-    ApplicationHandlerStop,
+    Application, # <--- Обязательный импорт для register_handlers_user
 )
 
 from handlers.user_keyboards import (
@@ -52,7 +51,7 @@ from handlers.profile import on_profile, on_export_excel, on_export_pdf
 # ✅ ДОБАВЛЕНО: юридические документы
 from handlers.documents import on_documents
 
-from services.openai_client import ask_openai, ask_ai_chat
+from services.openai_client import ask_openai
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +77,7 @@ NS_STEP_KEY = "ns_step"
 
 # премиум-флаг, который читает profile.py
 PREMIUM_KEY = "is_premium"
-AI_CHAT_MODE_KEY = "ai_chat_mode"  # Используем для изоляции режима
+AI_CHAT_MODE_KEY = "ai_chat_mode" # Используем для изоляции режима
 
 # =============================
 # START / ONBOARDING
@@ -86,7 +85,7 @@ AI_CHAT_MODE_KEY = "ai_chat_mode"  # Используем для изоляци�
 
 async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_fsm(context)
-    context.user_data.pop(AI_CHAT_MODE_KEY, None)  # Очищаем режим при старте
+    context.user_data.pop(AI_CHAT_MODE_KEY, None) # Очищаем режим при старте
 
     if "lang" not in context.user_data:
         context.user_data["lang"] = "ru"
@@ -640,6 +639,7 @@ async def premium_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=premium_keyboard(),
     )
 
+
 async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📌 Что ты получишь в Premium\n\n"
@@ -652,26 +652,21 @@ async def premium_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =============================
-# 💬 AI ЧАТ (Premium) — ИЗОЛИРОВАННЫЕ ХЕНДЛЕРЫ
+# 💬 AI ЧАТ (Premium) — MODE
 # =============================
 
-async def on_ai_chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Хендлер для входа в AI-чат."""
+async def enter_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_fsm(context)
     context.user_data[AI_CHAT_MODE_KEY] = True
 
     await update.message.reply_text(
         "🤖 AI-чат активирован.\n\n"
-        "Напиши любой вопрос.\n"
+        "Пиши текст — я верну аналитическое зеркало.\n"
         f"Чтобы выйти — нажми «{BTN_EXIT_CHAT}».",
         reply_markup=ai_chat_keyboard(),
     )
 
-    # Изоляция режима: не даём роутеру/меню обработать это же сообщение
-    raise ApplicationHandlerStop
-
-async def on_ai_chat_exit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Хендлер для выхода из AI-чата."""
+async def exit_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop(AI_CHAT_MODE_KEY, None)
     clear_fsm(context)
 
@@ -680,51 +675,48 @@ async def on_ai_chat_exit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_keyboard(),
     )
 
-    # Изоляция режима: не даём роутеру/меню обработать это же сообщение
-    raise ApplicationHandlerStop
-
-async def on_ai_chat_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Хендлер для обработки текстовых сообщений в режиме AI-чата."""
-    if context.user_data.get(AI_CHAT_MODE_KEY) is not True:
-        return
-
+async def ai_chat_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = (update.message.text or "").strip()
     if not user_text:
-        raise ApplicationHandlerStop
+        return
 
-    # защита: команды не пускаем (на всякий случай, хотя фильтр уже режет)
     if user_text.startswith("/"):
-        raise ApplicationHandlerStop
-
-    # кнопка выхода отлавливается отдельным хендлером; тут просто страховка
-    if user_text == BTN_EXIT_CHAT:
-        await on_ai_chat_exit(update, context)
         return
 
     await update.message.chat.send_action("typing")
 
     try:
-        answer = await ask_ai_chat(
-            user_id=update.effective_user.id,
-            message=user_text,
-        )
+        answer = await ask_openai(user_text)
         await update.message.reply_text(answer, reply_markup=ai_chat_keyboard())
-
     except Exception:
         await update.message.reply_text(
             "⚠️ Не удалось получить ответ от AI. Попробуй ещё раз.",
             reply_markup=ai_chat_keyboard(),
         )
 
-    # Ключевая штука: пока режим активен, дальше никто (меню/роутер) не должен срабатывать
-    raise ApplicationHandlerStop
-
 # =============================
-# ROUTER (ЕДИНЫЙ)
+# ROUTER (ЕДИНЫЙ) — TEXT
 # =============================
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text or ""
+    text = (update.message.text or "").strip()
+
+    if not text:
+        return
+
+    if text.startswith("/"):
+        return
+
+    if context.user_data.get(AI_CHAT_MODE_KEY) is True:
+        if text == BTN_EXIT_CHAT:
+            await exit_ai_chat(update, context)
+            return
+        await ai_chat_text_handler(update, context)
+        return
+
+    if text == BTN_AI_CHAT:
+        await enter_ai_chat(update, context)
+        return
 
     # YES/NO
     if text == BTN_YES:
@@ -757,6 +749,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_BACK:
         if context.user_data.get(PM_STATE_KEY) or context.user_data.get(GROWTH_KEY) or context.user_data.get(TA_STATE_KEY) or context.user_data.get(NS_STEP_KEY):
             clear_fsm(context)
+            # Возврат в хаб, если был активен любой FSM бизнес-анализа
             await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
             return
 
@@ -801,55 +794,21 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await premium_start(update, context)
         return
 
-    # Фоллбек
+    # Фоллбек (отвечает только если нет активных FSM и текст не совпал с кнопкой)
     lang = context.user_data.get("lang", "ru")
     await update.message.reply_text(t(lang, "choose_section"), reply_markup=main_menu_keyboard())
 
-# =============================
-# REGISTER
-# =============================
 
 def register_handlers_user(app: Application):
     """
-    Регистрирует все хендлеры пользователя.
+    Регистрирует пользовательский текстовый роутер.
 
-    Гарантия изоляции AI-чата:
-    - AI-обработчики стоят в более высоком приоритете (group=0)
-    - когда ai_chat_mode=True, AI-хендлеры останавливают дальнейшую обработку апдейта
-      через ApplicationHandlerStop, поэтому меню/роутер не срабатывают.
+    ВАЖНО:
+    - Один MessageHandler на текст.
+    - AI-чат — режим внутри text_router (изоляция без конфликтов с меню/FSM).
+    - Порядок по группам: /start (0), owner (1..2), manager (1..3), user (4).
     """
-    # 0) AI: выход (самый точный матч)
     app.add_handler(
-        MessageHandler(
-            filters.TEXT & filters.Regex(f"^{BTN_EXIT_CHAT}$"),
-            on_ai_chat_exit,
-        ),
-        group=0,
-    )
-
-    # 1) AI: вход (кнопка из главного меню)
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & filters.Regex(f"^{BTN_AI_CHAT}$"),
-            on_ai_chat_start,
-        ),
-        group=0,
-    )
-
-    # 2) AI: любое текстовое сообщение (кроме команд) — обрабатывается только если режим активен
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            on_ai_chat_message,
-        ),
-        group=0,
-    )
-
-    # 3) Основной роутер — всегда ниже приоритета AI (обработает текст, только если AI не остановил апдейт)
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            text_router,
-        ),
-        group=1,
+        MessageHandler(filters.TEXT & ~filters.COMMAND, text_router),
+        group=4,
     )
