@@ -5,7 +5,7 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     filters,
-    StopPropagation,  # <--- ДОБАВЛЕН ИМПОРТ
+    # StopPropagation,  <--- УДАЛЁН, ЧТОБЫ ИСПРАВИТЬ ImportError
 )
 
 from database.db import (
@@ -201,8 +201,10 @@ async def exit_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_keyboard(),
     )
     
-    # 📌 ФИКС: Остановка Propagation, чтобы апдейт не попал в group=4 (text_router)
-    raise StopPropagation  
+    # 📌 ФИКС: Остановка распространения. Возврат из функции в низшей группе (group=1)
+    # предотвращает попадание в общие роутеры (group=4), что устраняет двойное сообщение
+    # и обходит ошибку импорта StopPropagation.
+    return 
 
 # ==================================================
 # REGISTER
