@@ -1,4 +1,3 @@
-# main.py
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -17,9 +16,6 @@ logging.basicConfig(
 )
 
 
-# ==================================================
-# GLOBAL START ROUTER (ЕДИНСТВЕННЫЙ /start)
-# ==================================================
 async def start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     role = get_user_role(user_id)
@@ -38,10 +34,10 @@ async def start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # ЕДИНСТВЕННЫЙ /start
+    # ЕДИНСТВЕННЫЙ /start ВО ВСЁМ ПРОЕКТЕ
     app.add_handler(CommandHandler("start", start_router), group=0)
 
-    # Остальные обработчики (БЕЗ /start внутри)
+    # РОЛЕВЫЕ HANDLERS БЕЗ /start
     register_handlers_owner(app)    # group 1
     register_handlers_manager(app)  # group 2
     register_handlers_user(app)     # group 4
