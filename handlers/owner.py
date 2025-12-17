@@ -1,7 +1,7 @@
 # handlers/owner.py
 
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.ext import ContextTypes, MessageHandler, filters
 
 from database.db import get_user_role
 from handlers.owner_stats import show_owner_stats
@@ -44,7 +44,7 @@ async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if role != "owner":
         return
 
-    text = update.message.text
+    text = update.message.text or ""
 
     if text == BTN_OWNER_STATS:
         await show_owner_stats(update, context)
@@ -59,15 +59,11 @@ async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == BTN_EXIT:
-        await update.message.reply_text(
-            "Вы вышли из панели владельца.",
-            reply_markup=None,
-        )
+        await update.message.reply_text("Выход из панели владельца.")
         return
 
 
 def register_handlers_owner(app):
-    app.add_handler(CommandHandler("start", owner_start), group=1)
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, owner_text_router),
         group=1,
