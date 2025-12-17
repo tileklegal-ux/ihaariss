@@ -14,6 +14,7 @@ from services.audit_log import log_event
 BTN_ADD_MANAGER = "➕ Добавить менеджера"
 BTN_REMOVE_MANAGER = "➖ Удалить менеджера"
 BTN_GIVE_PREMIUM = "⭐ Выдать Premium"
+BTN_EXIT = "⬅️ Выйти"
 
 # Ключи для FSM состояний
 ADD_MANAGER_STATE = "add_manager_state"
@@ -313,10 +314,8 @@ def register_role_actions(app):
     # Регистрируем роутер для текстовых сообщений владельца и менеджера
     app.add_handler(
         MessageHandler(
-            filters.TEXT & ~filters.COMMAND & (
-                filters.User(get_user_by_username)  # Фильтр по пользователям с ролью
-            ),
+            filters.TEXT & ~filters.COMMAND,
             role_text_router
         ),
-        group=2  # Группа для менеджеров и владельцев
+        group=2
     )
