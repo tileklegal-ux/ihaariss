@@ -32,6 +32,45 @@ get_connection = get_db_connection
 # USERS
 # ==================================================
 
+def ensure_user_exists(telegram_id: int, username: str = None):
+    """Создает или обновляет пользователя в БД"""
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        if _is_postgres():
+            cur.execute(
+                """
+                INSERT INTO users (telegram_id, username, role, is_premium, premium_until)
+                VALUES (%s, %s, 'user', FALSE, NULL)
+                ON CONFLICT (telegram_id) 
+                DO UPDATE SET username = EXCLUDED.username
+                """,
+                (telegram_id, username)
+            )
+        else:
+            # SQLite
+            cur.execute(
+                "SELECT 1 FROM users WHERE telegram_id = ?",
+                (telegram_id,)
+            )
+            if cur.fetchone():
+                # Обновляем username, если он изменился
+                if username:
+                    cur.execute(
+                        "UPDATE users SET username = ? WHERE telegram_id = ?",
+                        (username, telegram_id)
+                    )
+            else:
+                # Создаем нового
+                cur.execute(
+                    "INSERT INTO users (telegram_id, username, role, is_premium, premium_until) VALUES (?, ?, 'user', 0, NULL)",
+                    (telegram_id, username)
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_user(telegram_id: int) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
     try:
@@ -66,16 +105,17 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
     try:
         cur = conn.cursor()
+        # Регистронезависимый поиск
         if _is_postgres():
             cur.execute(
                 "SELECT telegram_id, username, role, is_premium, premium_until "
-                "FROM users WHERE username = %s",
+                "FROM users WHERE username ILIKE %s",
                 (username,),
             )
         else:
             cur.execute(
                 "SELECT telegram_id, username, role, is_premium, premium_until "
-                "FROM users WHERE username = ?",
+                "FROM users WHERE username COLLATE NOCASE = ?",
                 (username,),
             )
         row = cur.fetchone()
