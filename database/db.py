@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import psycopg2
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
 SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", "database/artbazar.db")
@@ -24,12 +24,12 @@ def get_db_connection():
     return sqlite3.connect(SQLITE_DB_PATH)
 
 
-# alias для совместимости
+# alias (legacy)
 get_connection = get_db_connection
 
 
 # ==================================================
-# USERS – BASE
+# USERS
 # ==================================================
 
 def get_user(telegram_id: int) -> Optional[Dict[str, Any]]:
@@ -97,10 +97,6 @@ def get_user_role(telegram_id: int) -> str:
     return user["role"] if user else "user"
 
 
-# ==================================================
-# ROLES
-# ==================================================
-
 def set_role_by_telegram_id(telegram_id: int, role: str) -> None:
     conn = get_db_connection()
     try:
@@ -130,7 +126,7 @@ def is_user_premium(telegram_id: int) -> bool:
         return False
     if not user["is_premium"]:
         return False
-    if user["premium_until"] is None:
+    if not user["premium_until"]:
         return False
     try:
         return datetime.utcnow() <= user["premium_until"]
@@ -165,6 +161,15 @@ def update_premium_until(telegram_id: int, premium_until: datetime) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def give_premium_days(telegram_id: int, days: int) -> None:
+    """
+    LEGACY API
+    Используется в handlers/role_actions.py
+    """
+    new_until = datetime.utcnow() + timedelta(days=days)
+    update_premium_until(telegram_id, new_until)
 
 
 def remove_premium_from_db(telegram_id: int) -> None:
