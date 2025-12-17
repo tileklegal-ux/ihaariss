@@ -1,9 +1,8 @@
-# handlers/manager.py
-
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ContextTypes, MessageHandler, filters
 
 from database.db import get_user_role
+
 
 BTN_MANAGER_INFO = "📋 Задачи"
 BTN_EXIT = "⬅️ Выйти"
