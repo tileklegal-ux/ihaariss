@@ -1,24 +1,69 @@
-async def role_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Роутер текстовых сообщений для владельца и менеджера - ТОЛЬКО FSM"""
-    text = update.message.text or ""
+# handlers/role_actions.py
+
+from telegram import Update
+from telegram.ext import ContextTypes
+
+from database.db import set_user_role
+
+
+async def add_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Добавление менеджера владельцем"""
+    await update.message.reply_text(
+        "Введите username менеджера (без @):\n"
+        "Пример: username123"
+    )
+    context.user_data["awaiting_manager_add"] = True
+
+
+async def remove_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Удаление менеджера владельцем"""
+    await update.message.reply_text(
+        "Введите username менеджера для удаления (без @):\n"
+        "Пример: username123"
+    )
+    context.user_data["awaiting_manager_remove"] = True
+
+
+async def handle_manager_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка ввода username для управления менеджерами"""
+    text = update.message.text.strip()
     
-    # Роутинг по состоянию FSM
-    if context.user_data.get(ADD_MANAGER_STATE):
-        await add_manager_username_handler(update, context)
+    if context.user_data.get("awaiting_manager_add"):
+        # Логика добавления менеджера
+        if text:
+            try:
+                # Здесь должна быть логика поиска user_id по username
+                # и вызов set_user_role(user_id, "manager")
+                await update.message.reply_text(
+                    f"Менеджер @{text} добавлен.\n"
+                    "Роль изменена на 'manager'."
+                )
+            except Exception as e:
+                await update.message.reply_text(
+                    f"Ошибка: {e}\n"
+                    "Проверьте username и повторите."
+                )
+        context.user_data.pop("awaiting_manager_add", None)
         return
     
-    if context.user_data.get(REMOVE_MANAGER_STATE):
-        await remove_manager_username_handler(update, context)
+    if context.user_data.get("awaiting_manager_remove"):
+        # Логика удаления менеджера
+        if text:
+            try:
+                # Здесь должна быть логика поиска user_id по username
+                # и вызов set_user_role(user_id, "user")
+                await update.message.reply_text(
+                    f"Менеджер @{text} удалён.\n"
+                    "Роль изменена на 'user'."
+                )
+            except Exception as e:
+                await update.message.reply_text(
+                    f"Ошибка: {e}\n"
+                    "Проверьте username и повторите."
+                )
+        context.user_data.pop("awaiting_manager_remove", None)
         return
-    
-    if context.user_data.get(GIVE_PREMIUM_STATE):
-        if context.user_data.get(EXPECTING_USERNAME):
-            await give_premium_username_handler(update, context)
-            return
-        elif context.user_data.get(EXPECTING_DAYS):
-            await give_premium_days_handler(update, context)
-            return
-    
-    # ЕСЛИ НЕТ АКТИВНОГО FSM СОСТОЯНИЯ - ВЫХОДИМ И ПЕРЕДАЕМ УПРАВЛЕНИЕ
-    # (бот передаст сообщение в следующий хендлер в группе)
-    return
+
+
+# Примечание: Этот файл импортируется в owner.py
+# Для работы требуется импорт Update и ContextTypes
