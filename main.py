@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from config import TELEGRAM_TOKEN
-from database.db import get_user_role
+from database.db import get_user_role, ensure_user_exists
 
 from handlers.user import cmd_start_user, register_handlers_user
 from handlers.owner import owner_start, register_handlers_owner
@@ -19,6 +19,11 @@ logging.basicConfig(
 
 async def start_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    username = update.effective_user.username
+    
+    # Сохраняем/обновляем пользователя в БД
+    ensure_user_exists(user_id, username)
+    
     role = get_user_role(user_id)
 
     if role == "owner":
