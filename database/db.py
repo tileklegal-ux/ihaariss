@@ -28,12 +28,14 @@ def get_user(telegram_id: int):
         cur = conn.cursor()
         if _is_postgres():
             cur.execute(
-                "SELECT telegram_id, username, role, is_premium, premium_until FROM users WHERE telegram_id = %s",
+                "SELECT telegram_id, username, role, is_premium, premium_until "
+                "FROM users WHERE telegram_id = %s",
                 (telegram_id,),
             )
         else:
             cur.execute(
-                "SELECT telegram_id, username, role, is_premium, premium_until FROM users WHERE telegram_id = ?",
+                "SELECT telegram_id, username, role, is_premium, premium_until "
+                "FROM users WHERE telegram_id = ?",
                 (telegram_id,),
             )
         row = cur.fetchone()
@@ -53,6 +55,14 @@ def get_user(telegram_id: int):
 def get_user_role(telegram_id: int) -> str:
     user = get_user(telegram_id)
     return user["role"] if user else "user"
+
+
+def is_user_premium(telegram_id: int) -> bool:
+    """
+    Используется services/premium_checker.py
+    """
+    user = get_user(telegram_id)
+    return bool(user and user.get("is_premium"))
 
 
 def update_premium_until(telegram_id: int, premium_until: datetime):
@@ -119,11 +129,13 @@ def get_all_premium_users():
         cur = conn.cursor()
         if _is_postgres():
             cur.execute(
-                "SELECT telegram_id, premium_until FROM users WHERE is_premium = TRUE AND premium_until IS NOT NULL"
+                "SELECT telegram_id, premium_until "
+                "FROM users WHERE is_premium = TRUE AND premium_until IS NOT NULL"
             )
         else:
             cur.execute(
-                "SELECT telegram_id, premium_until FROM users WHERE is_premium = 1 AND premium_until IS NOT NULL"
+                "SELECT telegram_id, premium_until "
+                "FROM users WHERE is_premium = 1 AND premium_until IS NOT NULL"
             )
         rows = cur.fetchall() or []
         return [
