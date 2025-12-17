@@ -45,7 +45,7 @@ from handlers.user_helpers import (
     insights_bridge_text,
 )
 
-# ✅ ЕДИНСТВЕННЫЙ “владелец” личного кабинета и экспорта — handlers/profile.py
+# ✅ ЕДИНСТВЕННЫЙ "владелец" личного кабинета и экспорта — handlers/profile.py
 from handlers.profile import on_profile, on_export_excel, on_export_pdf
 
 # ✅ ДОБАВЛЕНО: юридические документы
@@ -110,7 +110,7 @@ async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Ваш оригинальный текст с дисклеймером
     text = (
         f"Привет, {name}! 👋\n\n"
-        "Я — AI-ассистент для анализа ниши и товаров.\n"
+        "Я — AI.ассистент для анализа ниши и товаров.\n"
         "Помогаю находить точки роста и быстрее принимать решения.\n\n"
         "Важно: я не заменяю эксперта и не даю гарантированных результатов —\n"
         "ты сам принимаешь финальные решения.\n\n"
@@ -665,6 +665,12 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_PREMIUM:
         await premium_start(update, context)
         return
+    if text == BTN_ANALYSIS:
+        await ta_start(update, context)
+        return
+    if text == BTN_NICHE:
+        await ns_start(update, context)
+        return
 
     # 10) Кнопки ПОДМЕНЮ "Бизнес-анализ"
     if text == BTN_PM:
@@ -672,12 +678,6 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if text == BTN_GROWTH:
         await growth_start(update, context)
-        return
-    if text == BTN_ANALYSIS:
-        await ta_start(update, context)
-        return
-    if text == BTN_NICHE:
-        await ns_start(update, context)
         return
 
     # Если ничего не подошло
