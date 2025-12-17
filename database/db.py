@@ -10,15 +10,24 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SQLITE_DB_PATH = "database/artbazar.db"
 
 
+# =========================
+# CONNECTIONS
+# =========================
+
 def is_postgres() -> bool:
     return bool(DATABASE_URL)
 
 
-def get_connection():
+def get_db_connection():
+    """КАНОНИЧНАЯ функция, ожидается owner_stats.py"""
     if is_postgres():
         return psycopg2.connect(DATABASE_URL)
     os.makedirs(os.path.dirname(SQLITE_DB_PATH), exist_ok=True)
     return sqlite3.connect(SQLITE_DB_PATH)
+
+
+# алиас для совместимости
+get_connection = get_db_connection
 
 
 # =========================
@@ -26,7 +35,7 @@ def get_connection():
 # =========================
 
 def get_user(telegram_id: int) -> Optional[Dict[str, Any]]:
-    conn = get_connection()
+    conn = get_db_connection()
     try:
         cur = conn.cursor()
         if is_postgres():
@@ -83,7 +92,7 @@ def ensure_user_exists(
     last_name: str = None,
     language: str = "ru",
 ):
-    conn = get_connection()
+    conn = get_db_connection()
     try:
         cur = conn.cursor()
 
@@ -121,7 +130,7 @@ def ensure_user_exists(
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
-                        telegram_id,  # user_id = telegram_id (канон)
+                        telegram_id,   # user_id = telegram_id (канон)
                         telegram_id,
                         username,
                         first_name,
@@ -156,7 +165,7 @@ def get_user_role(telegram_id: int) -> str:
 
 
 def set_role_by_telegram_id(telegram_id: int, role: str):
-    conn = get_connection()
+    conn = get_db_connection()
     try:
         cur = conn.cursor()
         if is_postgres():
@@ -172,6 +181,11 @@ def set_role_by_telegram_id(telegram_id: int, role: str):
         conn.commit()
     finally:
         conn.close()
+
+
+# алиас для совместимости
+def set_user_role(telegram_id: int, role: str):
+    set_role_by_telegram_id(telegram_id, role)
 
 
 def is_user_premium(telegram_id: int) -> bool:
