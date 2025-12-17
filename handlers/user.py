@@ -35,6 +35,7 @@ from handlers.user_keyboards import (
     BTN_PREMIUM,
     BTN_PREMIUM_BENEFITS,
     BTN_BIZ,
+    BTN_DOCS,
 )
 
 from handlers.user_texts import t
@@ -110,7 +111,7 @@ async def cmd_start_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Ваш оригинальный текст с дисклеймером
     text = (
         f"Привет, {name}! 👋\n\n"
-        "Я — AI.ассистент для анализа ниши и товаров.\n"
+        "Я — AI-ассистент для анализа ниши и товаров.\n"
         "Помогаю находить точки роста и быстрее принимать решения.\n\n"
         "Важно: я не заменяю эксперта и не даю гарантированных результатов —\n"
         "ты сам принимаешь финальные решения.\n\n"
@@ -589,7 +590,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     # 4) Документы
-    if text in ("📄 Документы", "📄 Документы и условия"):
+    if text == BTN_DOCS:
         await on_documents(update, context)
         return
 
