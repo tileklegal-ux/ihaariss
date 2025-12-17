@@ -21,7 +21,8 @@ from handlers.user_keyboards import (
     ai_chat_keyboard,
     main_menu_keyboard,
     business_hub_keyboard,
-    growth_channels_keyboard,
+    pm_step_keyboard,
+    growth_step_keyboard,
     step_keyboard,
     premium_keyboard,
     BTN_BACK,
@@ -152,7 +153,7 @@ async def on_business_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # =============================
-# 💰 ПРИБЫЛЬ И ДЕНЬГИ (FSM)
+# 💰 ПРИБЫЛЬ И ДЕНЬГИ (FSM) - ПОЛНЫЙ 5 ШАГОВ
 # =============================
 
 async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -163,7 +164,7 @@ async def pm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
     await update.message.reply_text(
         t(lang, "pm_intro"),
-        reply_markup=step_keyboard(),
+        reply_markup=pm_step_keyboard(1),
     )
 
 
@@ -178,49 +179,61 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if step == 1:
-        # Выручка
-        try:
-            revenue = float(text.replace(",", "."))
-        except Exception:
-            await update.message.reply_text(t(lang, "pm_revenue_err"), reply_markup=step_keyboard())
-            return
-
-        context.user_data[PM_REVENUE] = revenue
+        context.user_data["pm_type"] = text
         context.user_data[PM_STEP] = 2
-        await update.message.reply_text(t(lang, "pm_expenses_ask"), reply_markup=step_keyboard())
+        await update.message.reply_text(
+            t(lang, "pm_step1"),
+            reply_markup=pm_step_keyboard(2),
+        )
         return
 
     if step == 2:
-        # Расходы
-        try:
-            expenses = float(text.replace(",", "."))
-        except Exception:
-            await update.message.reply_text(t(lang, "pm_expenses_err"), reply_markup=step_keyboard())
-            return
+        context.user_data["pm_source"] = text
+        context.user_data[PM_STEP] = 3
+        await update.message.reply_text(
+            t(lang, "pm_step2"),
+            reply_markup=pm_step_keyboard(3),
+        )
+        return
 
-        context.user_data[PM_EXPENSES] = expenses
-        revenue = float(context.user_data.get(PM_REVENUE, 0))
-        profit = revenue - expenses
-        margin = (profit / revenue * 100) if revenue else 0.0
+    if step == 3:
+        context.user_data["pm_fixed"] = text
+        context.user_data[PM_STEP] = 4
+        await update.message.reply_text(
+            t(lang, "pm_step3"),
+            reply_markup=pm_step_keyboard(4),
+        )
+        return
 
-        # Сохраним инсайт
+    if step == 4:
+        context.user_data["pm_variable"] = text
+        context.user_data[PM_STEP] = 5
+        await update.message.reply_text(
+            t(lang, "pm_step4"),
+            reply_markup=pm_step_keyboard(5),
+        )
+        return
+
+    if step == 5:
+        context.user_data["pm_profitability"] = text
+
+        # Формируем инсайт
         insights = (
-            "Итог за месяц:\n"
-            "Прибыль — разница между выручкой и расходами.\n"
-            "Маржа показывает, сколько остаётся с каждого рубля.\n"
-            "Это не оценка бизнеса, а снимок текущего состояния.\n\n"
-            f"Выручка: {revenue}\n"
-            f"Расходы: {expenses}\n"
-            f"Прибыль: {profit}\n"
-            f"Маржа: {margin:.1f}%\n"
+            "📊 Анализ прибыли и денег:\n\n"
+            f"Тип бизнеса: {context.user_data.get('pm_type', '')}\n"
+            f"Источник выручки: {context.user_data.get('pm_source', '')}\n"
+            f"Постоянные расходы: {context.user_data.get('pm_fixed', '')}\n"
+            f"Переменные расходы: {context.user_data.get('pm_variable', '')}\n"
+            f"Рентабельность: {context.user_data.get('pm_profitability', '')}\n\n"
+            "Это аналитический снимок, не рекомендация."
         )
 
         ai_prompt = (
-            "Сделай короткий аналитический комментарий по месячной модели.\n"
+            "Сделай короткий аналитический комментарий по модели прибыли.\n"
             "Запрещено: советы, обещания, прогнозы, директивы.\n"
             "Нужно: 1) наблюдения 2) риски 3) варианты проверки.\n"
             "В конце: это ориентир, а не рекомендация; решение за пользователем.\n\n"
-            f"Данные:\nВыручка={revenue}\nРасходы={expenses}\nПрибыль={profit}\nМаржа={margin:.1f}%\n"
+            f"Данные:\n{insights}\n"
         )
 
         await update.message.reply_text(insights, reply_markup=business_hub_keyboard())
@@ -240,7 +253,7 @@ async def pm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =============================
-# 🚀 РОСТ И ПРОДАЖИ (FSM)
+# 🚀 РОСТ И ПРОДАЖИ (FSM) - ПОЛНЫЙ 5 ШАГОВ
 # =============================
 
 async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -251,48 +264,90 @@ async def growth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
     await update.message.reply_text(
         t(lang, "growth_intro"),
-        reply_markup=growth_channels_keyboard(),
+        reply_markup=growth_step_keyboard(1),
     )
 
 
 async def growth_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
+    lang = context.user_data.get("lang", "ru")
+    step = context.user_data.get(GROWTH_STEP, 1)
 
     if text == BTN_BACK:
         clear_fsm(context)
         await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
         return
 
-    # фиксируем канал
-    context.user_data[GROWTH_CHANNEL] = text
+    if step == 1:
+        context.user_data["growth_channel"] = text
+        context.user_data[GROWTH_STEP] = 2
+        await update.message.reply_text(
+            t(lang, "growth_step1"),
+            reply_markup=growth_step_keyboard(2),
+        )
+        return
 
-    insights = (
-        "Текущий канал привлечения зафиксирован.\n"
-        "Здесь нет оценки эффективности — это просто снимок.\n\n"
-        f"Канал: {text}\n"
-    )
+    if step == 2:
+        context.user_data["growth_conversion"] = text
+        context.user_data[GROWTH_STEP] = 3
+        await update.message.reply_text(
+            t(lang, "growth_step2"),
+            reply_markup=growth_step_keyboard(3),
+        )
+        return
 
-    ai_prompt = (
-        "Сделай короткую аналитическую рефлексию по выбранному каналу привлечения.\n"
-        "Запрещено: советы, обещания, прогнозы, директивы.\n"
-        "Нужно: 1) наблюдения 2) риски 3) варианты проверки.\n"
-        "В конце: это ориентир, а не рекомендация; решение за пользователем.\n\n"
-        f"Канал: {text}\n"
-    )
+    if step == 3:
+        context.user_data["growth_cost"] = text
+        context.user_data[GROWTH_STEP] = 4
+        await update.message.reply_text(
+            t(lang, "growth_step3"),
+            reply_markup=growth_step_keyboard(4),
+        )
+        return
 
-    await update.message.reply_text(insights, reply_markup=business_hub_keyboard())
+    if step == 4:
+        context.user_data["growth_retention"] = text
+        context.user_data[GROWTH_STEP] = 5
+        await update.message.reply_text(
+            t(lang, "growth_step4"),
+            reply_markup=growth_step_keyboard(5),
+        )
+        return
 
-    try:
-        await update.message.chat.send_action("typing")
-        ai_text = await ask_openai(ai_prompt)
-        await update.message.reply_text(ai_text, reply_markup=business_hub_keyboard())
-    except Exception:
-        await update.message.reply_text("⚠️ Не удалось получить AI-комментарий.", reply_markup=business_hub_keyboard())
+    if step == 5:
+        context.user_data["growth_plans"] = text
 
-    save_insights(context, insights)
+        insights = (
+            "🚀 Анализ роста и продаж:\n\n"
+            f"Канал привлечения: {context.user_data.get('growth_channel', '')}\n"
+            f"Конверсия: {context.user_data.get('growth_conversion', '')}\n"
+            f"Стоимость привлечения: {context.user_data.get('growth_cost', '')}\n"
+            f"Удержание клиентов: {context.user_data.get('growth_retention', '')}\n"
+            f"Планы роста: {context.user_data.get('growth_plans', '')}\n\n"
+            "Это аналитический снимок, не рекомендация."
+        )
 
-    clear_fsm(context)
-    await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
+        ai_prompt = (
+            "Сделай короткий аналитический комментарий по модели роста.\n"
+            "Запрещено: советы, обещания, прогнозы, директивы.\n"
+            "Нужно: 1) наблюдения 2) риски 3) варианты проверки.\n"
+            "В конце: это ориентир, а не рекомендация; решение за пользователем.\n\n"
+            f"Данные:\n{insights}\n"
+        )
+
+        await update.message.reply_text(insights, reply_markup=business_hub_keyboard())
+
+        try:
+            await update.message.chat.send_action("typing")
+            ai_text = await ask_openai(ai_prompt)
+            await update.message.reply_text(ai_text, reply_markup=business_hub_keyboard())
+        except Exception:
+            await update.message.reply_text("⚠️ Не удалось получить AI-комментарий.", reply_markup=business_hub_keyboard())
+
+        save_insights(context, insights)
+
+        clear_fsm(context)
+        await update.message.reply_text("📊 Бизнес-анализ", reply_markup=business_hub_keyboard())
 
 
 # =============================
@@ -575,12 +630,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await ai_chat_text_handler(update, context)
         return
 
-    # 2) Кнопка AI ЧАТ
-    if text == BTN_AI_CHAT:
-        await enter_ai_chat(update, context)
-        return
-
-    # 3) Онбординг (фиксируем первые кнопки)
+    # 2) Онбординг (фиксируем первые кнопки)
     if context.user_data.get(ONBOARDING_KEY):
         if text == BTN_YES:
             await on_yes(update, context)
@@ -589,17 +639,36 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await on_no(update, context)
             return
 
-    # 4) Документы
+    # 3) Активные FSM (должно быть ВЫШЕ всех кнопок!)
+    if context.user_data.get(PM_STATE_KEY):
+        await pm_handler(update, context)
+        return
+    if context.user_data.get(GROWTH_KEY):
+        await growth_handler(update, context)
+        return
+    if context.user_data.get(TA_STATE_KEY):
+        await ta_handler(update, context)
+        return
+    if context.user_data.get(NS_STEP_KEY):
+        await ns_handler(update, context)
+        return
+
+    # 4) Кнопка AI ЧАТ
+    if text == BTN_AI_CHAT:
+        await enter_ai_chat(update, context)
+        return
+
+    # 5) Документы
     if text == BTN_DOCS:
         await on_documents(update, context)
         return
 
-    # 5) Преимущества
+    # 6) Преимущества
     if text == BTN_PREMIUM_BENEFITS:
         await premium_benefits(update, context)
         return
 
-    # 6) Экспорт (уходит в profile.py, но мы ловим кнопки здесь)
+    # 7) Экспорт (уходит в profile.py, но мы ловим кнопки здесь)
     if text == "📊 Скачать Excel":
         await on_export_excel(update, context)
         return
@@ -607,7 +676,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await on_export_pdf(update, context)
         return
 
-    # 7) Кнопка НАЗАД (глобальная) - ВАЖНО: обработка для non-premium AI-chat
+    # 8) Кнопка НАЗАД (глобальная) - ВАЖНО: обработка для non-premium AI-chat
     if text == BTN_BACK:
         # Специальная обработка для возврата после отказа в AI-чате
         if not is_user_premium(update.effective_user.id) and not any([
@@ -639,20 +708,6 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t(lang, "choose_section"), reply_markup=main_menu_keyboard())
         return
 
-    # 8) Активные FSM
-    if context.user_data.get(PM_STATE_KEY):
-        await pm_handler(update, context)
-        return
-    if context.user_data.get(GROWTH_KEY):
-        await growth_handler(update, context)
-        return
-    if context.user_data.get(TA_STATE_KEY):
-        await ta_handler(update, context)
-        return
-    if context.user_data.get(NS_STEP_KEY):
-        await ns_handler(update, context)
-        return
-
     # 9) Кнопки переходов (Главное меню) - ТОЛЬКО ПЕРВЫЙ УРОВЕНЬ
     if text == BTN_BIZ:
         await on_business_analysis(update, context)
@@ -673,7 +728,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await ns_start(update, context)
         return
 
-    # 10) Кнопки ПОДМЕНЮ "Бизнес-анализ"
+    # 10) Кнопки ПОДМЕНЮ "Бизнес-анализ" (ВАЖНО: должна быть ПОСЛЕ главного меню)
     if text == BTN_PM:
         await pm_start(update, context)
         return
