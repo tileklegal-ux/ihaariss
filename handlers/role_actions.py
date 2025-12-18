@@ -1,70 +1,40 @@
 # handlers/role_actions.py
+
 from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler, Application
+from telegram.ext import ContextTypes
 
-from database.db import set_user_role, get_user_by_username, ensure_user_exists
-
-# Если у тебя owner задаётся иначе — поменяешь тут или завяжешь на config.py
-OWNER_ID = 1974482384
-
-
-def _parse_target(arg: str):
-    """
-    Возвращает либо int(user_id), либо None.
-    Поддержка: "123456", "@username", "username"
-    """
-    arg = (arg or "").strip()
-    if not arg:
-        return None
-
-    if arg.isdigit():
-        return int(arg)
-
-    row = get_user_by_username(arg)
-    if row:
-        return int(row[0])
-
-    return None
+from database.db import set_user_role, get_user_by_username
 
 
 async def add_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("Нет доступа.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Формат: /add_manager <telegram_id или @username>")
-        return
-
-    target = _parse_target(context.args[0])
-    if not target:
-        await update.message.reply_text("Не нашёл пользователя. Дай telegram_id или корректный @username.")
-        return
-
-    ensure_user_exists(target, None)
-    set_user_role(target, "manager")
-    await update.message.reply_text(f"✅ Назначил менеджера: {target}")
+    await update.message.reply_text("Отправь @username менеджера")
+    context.user_data["add_manager"] = True
 
 
 async def remove_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("Нет доступа.")
+    await update.message.reply_text("Отправь @username менеджера для удаления")
+    context.user_data["remove_manager"] = True
+
+
+async def role_actions_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lstrip("@")
+
+    if context.user_data.get("add_manager"):
+        user = get_user_by_username(text)
+        if not user:
+            await update.message.reply_text("Пользователь не найден")
+            return
+        set_user_role(user[0], "manager")
+        context.user_data.clear()
+        await update.message.reply_text("✅ Менеджер добавлен")
         return
 
-    if not context.args:
-        await update.message.reply_text("Формат: /remove_manager <telegram_id или @username>")
+    if context.user_data.get("remove_manager"):
+        user = get_user_by_username(text)
+        if not user:
+            await update.message.reply_text("Пользователь не найден")
+            return
+        set_user_role(user[0], "user")
+        context.user_data.clear()
+        await update.message.reply_text("❌ Менеджер удалён")
         return
-
-    target = _parse_target(context.args[0])
-    if not target:
-        await update.message.reply_text("Не нашёл пользователя. Дай telegram_id или корректный @username.")
-        return
-
-    ensure_user_exists(target, None)
-    set_user_role(target, "user")
-    await update.message.reply_text(f"✅ Снял менеджера: {target}")
-
-
-def register_role_actions(app: Application):
-    app.add_handler(CommandHandler("add_manager", add_manager))
-    app.add_handler(CommandHandler("remove_manager", remove_manager))
