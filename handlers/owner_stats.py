@@ -3,7 +3,8 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 import time
 import sqlite3
 
-from database.db import get_user_role, get_db_connection
+# ИЗМЕНИТЬ ЭТУ СТРОКУ:
+from database.db import get_user_role, get_connection  # было: get_db_connection
 from services.audit_log import log_event
 
 BTN_STATS = "📊 Статистика бота"
@@ -21,7 +22,7 @@ async def owner_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = int(time.time())
 
     # --- users DB ---
-    conn = get_db_connection()
+    conn = get_connection()  # ИЗМЕНИТЬ ТУТ ТОЖЕ
     cur = conn.cursor()
 
     cur.execute("SELECT COUNT(*) FROM users")
