@@ -1,57 +1,61 @@
-# handlers/owner.py
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes, MessageHandler, filters, Application, CommandHandler
+from telegram.ext import ContextTypes, MessageHandler, filters
 
+from handlers.owner_stats import show_owner_stats
 from handlers.role_actions import add_manager, remove_manager
 
-OWNER_MENU = ReplyKeyboardMarkup(
+
+# =========================
+# КЛАВИАТУРА OWNER
+# =========================
+OWNER_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ["📊 Статистика"],
-        ["➕ Назначить менеджера", "➖ Убрать менеджера"],
-        ["🏠 В меню"],
+        ["📊 Общая статистика"],
+        ["➕ Добавить менеджера", "➖ Удалить менеджера"],
+        ["⬅️ Выйти"],
     ],
     resize_keyboard=True,
 )
 
 
+# =========================
+# START OWNER
+# =========================
 async def owner_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👑 Панель владельца.\n\n"
-        "Команды:\n"
-        "/add_manager <id или @username>\n"
-        "/remove_manager <id или @username>\n",
-        reply_markup=OWNER_MENU,
+        "👑 Панель владельца\n\nВыберите действие:",
+        reply_markup=OWNER_KEYBOARD,
     )
 
 
-async def owner_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+# =========================
+# TEXT ROUTER OWNER
+# =========================
+async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
 
-    if text == "➕ Назначить менеджера":
-        await update.message.reply_text("Формат: /add_manager <telegram_id или @username>")
+    if text == "📊 Общая статистика":
+        await show_owner_stats(update, context)
         return
 
-    if text == "➖ Убрать менеджера":
-        await update.message.reply_text("Формат: /remove_manager <telegram_id или @username>")
+    if text == "➕ Добавить менеджера":
+        await add_manager(update, context)
         return
 
-    if text == "📊 Статистика":
-        # Если у тебя есть handlers/owner_stats.py — подключишь тут.
-        await update.message.reply_text("Статистика подключится через handlers/owner_stats.py")
+    if text == "➖ Удалить менеджера":
+        await remove_manager(update, context)
         return
 
-    if text == "🏠 В меню":
+    if text == "⬅️ Выйти":
         await owner_start(update, context)
         return
 
 
-def register_handlers_owner(app: Application):
-    # /owner на всякий случай
-    app.add_handler(CommandHandler("owner", owner_start))
-
-    # commands role_actions
-    app.add_handler(CommandHandler("add_manager", add_manager))
-    app.add_handler(CommandHandler("remove_manager", remove_manager))
-
-    # кнопки владельца
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, owner_menu_click))
+# =========================
+# REGISTER OWNER HANDLERS
+# =========================
+def register_owner_handlers(application):
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, owner_text_router),
+        group=1,  # ❗ ВАЖНО: owner > manager > user
+    )
