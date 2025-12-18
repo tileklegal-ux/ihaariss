@@ -7,7 +7,7 @@ import time
 
 MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ["⭐ Выдать Premium"],
+        ["💎 Активировать Premium"],
         ["⬅️ Выйти"],
     ],
     resize_keyboard=True,
@@ -23,39 +23,56 @@ async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+
+    # защита: только менеджер
     if get_user_role(user_id) != "manager":
         return
 
-    text = update.message.text
+    text = update.message.text.strip()
 
-    if text == "⭐ Выдать Premium":
-        context.user_data["await_premium_user"] = True
-        await update.message.reply_text("Введи username пользователя (@username)")
+    # ===== АКТИВАЦИЯ PREMIUM =====
+    if text == "💎 Активировать Premium":
+        context.user_data["await_premium_id"] = True
+        await update.message.reply_text(
+            "💎 Активация Premium\n\n"
+            "Отправь Telegram ID пользователя, которому нужно активировать Premium.\n\n"
+            "Как узнать Telegram ID:\n"
+            "1️⃣ Напиши боту @userinfobot\n"
+            "2️⃣ Скопируй ID\n"
+            "3️⃣ Пришли сюда числом"
+        )
         return
 
-    if text == "⬅️ Выйти":
-        await update.message.reply_text("Выход из панели менеджера")
-        return
-
-    if context.user_data.get("await_premium_user"):
-        username = text.lstrip("@")
-        from database.db import get_user_by_username
-
-        user = get_user_by_username(username)
-        if not user:
-            await update.message.reply_text("Пользователь не найден")
+    # ===== ПОЛУЧЕН ID ПОЛЬЗОВАТЕЛЯ =====
+    if context.user_data.get("await_premium_id"):
+        try:
+            target_id = int(text)
+        except ValueError:
+            await update.message.reply_text("❌ Telegram ID должен быть числом")
             return
 
-        target_user_id = user[0]
-        premium_until = int(time.time()) + 30 * 24 * 60 * 60  # 30 дней
-        set_premium_until(target_user_id, premium_until)
+        # Premium на 30 дней
+        premium_until = int(time.time()) + 30 * 24 * 60 * 60
+        set_premium_until(target_id, premium_until)
 
-        context.user_data["await_premium_user"] = False
-        await update.message.reply_text(f"Premium выдан пользователю @{username}")
+        context.user_data.pop("await_premium_id", None)
+
+        await update.message.reply_text(
+            f"✅ Premium активирован\n\n"
+            f"Telegram ID: {target_id}\n"
+            f"Срок: 30 дней"
+        )
+        return
+
+    # ===== ВЫХОД =====
+    if text == "⬅️ Выйти":
+        context.user_data.clear()
+        await update.message.reply_text("⬅️ Выход из панели менеджера")
+        return
 
 
 def register_manager_handlers(app):
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router),
-        group=2,
+        group=1,
     )
