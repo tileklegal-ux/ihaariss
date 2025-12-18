@@ -1,7 +1,6 @@
 # database/db.py
 import os
 import psycopg2
-import psycopg2.extras
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -120,6 +119,12 @@ def set_premium_until(user_id: int, premium_until: datetime | None):
 
 def is_user_premium(user_id: int) -> bool:
     premium_until = get_premium_until(user_id)
+
     if not premium_until:
         return False
-    return premium_until > datetime.now(timezone.utc)
+
+    # 🔥 ВОТ ЗДЕСЬ ВЕСЬ ВАРИАНТ A
+    if premium_until <= datetime.now(timezone.utc):
+        return False
+
+    return True
