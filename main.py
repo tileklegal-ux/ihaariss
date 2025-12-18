@@ -19,11 +19,11 @@ def main():
 
     app = Application.builder().token(token).build()
 
-    # ВАЖНО: порядок регистрации = приоритет
+    # ПОРЯДОК = ПРИОРИТЕТ
     register_start_handlers(app)     # /start
-    register_manager_handlers(app)   # MANAGER — раньше USER
-    register_owner_handlers(app)     # OWNER — выше USER
-    register_handlers_user(app)      # USER — всегда последний
+    register_owner_handlers(app)     # OWNER — ПЕРВЫЙ
+    register_manager_handlers(app)   # MANAGER
+    register_handlers_user(app)      # USER — ПОСЛЕДНИЙ
 
     app.run_polling(drop_pending_updates=True)
 
