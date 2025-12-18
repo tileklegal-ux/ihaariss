@@ -1,25 +1,17 @@
 from telegram.ext import Application
+
 from config import BOT_TOKEN
-from database.db import init_db
-
 from handlers.start import register_start_handlers
-from handlers.user import register_user_handlers
-from handlers.owner import register_handlers_owner
-from handlers.manager import register_handlers_manager
-
 
 def main():
-    init_db()
-
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # /start — всегда первый
+    # /start (роутер по ролям)
     register_start_handlers(application)
 
-    # дальше по ролям
-    register_handlers_owner(application)
-    register_handlers_manager(application)
-    register_user_handlers(application)
+    # ❗ ВАЖНО:
+    # user.py НЕ регистрируется тут как отдельный модуль
+    # Все text handlers живут внутри user.text_router()
 
     application.run_polling()
 
