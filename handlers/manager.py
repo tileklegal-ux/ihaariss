@@ -86,20 +86,21 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         ensure_user_exists(tg_id)
 
-        premium_until = int(
-            (datetime.now(timezone.utc) + timedelta(days=days)).timestamp()
-        )
+        # 🔑 ВАЖНО: datetime, а не timestamp
+        premium_until = datetime.now(timezone.utc) + timedelta(days=days)
 
         set_premium_until(tg_id, premium_until)
 
         context.user_data.clear()
 
+        # уведомление менеджеру
         await update.message.reply_text(
             f"✅ Premium активирован\n\n"
             f"👤 Пользователь: {tg_id}\n"
             f"⏳ Срок: {days} дней"
         )
 
+        # уведомление пользователю
         try:
             await context.bot.send_message(
                 chat_id=tg_id,
@@ -119,5 +120,5 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 def register_manager_handlers(app):
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router),
-        group=0,
+        group=1,
     )
