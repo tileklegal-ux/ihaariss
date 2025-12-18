@@ -1,3 +1,4 @@
+# owner_stats.py
 from telegram import Update
 from telegram.ext import ContextTypes
 import psycopg2
@@ -22,7 +23,7 @@ async def show_owner_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Premium пользователи
         cur.execute(
-            "SELECT COUNT(*) FROM users WHERE premium_until > EXTRACT(EPOCH FROM NOW())"
+            "SELECT COUNT(*) FROM users WHERE premium_until IS NOT NULL AND premium_until > NOW()"
         )
         premium_users = cur.fetchone()[0]
 
