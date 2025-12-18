@@ -56,7 +56,10 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         ensure_user_exists(target_id)
 
-        premium_until = datetime.now(timezone.utc) + timedelta(days=30)
+        premium_until = int(
+            (datetime.now(timezone.utc) + timedelta(days=30)).timestamp()
+        )
+
         set_premium_until(target_id, premium_until)
 
         context.user_data.pop("await_premium_id", None)
@@ -68,5 +71,6 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 def register_manager_handlers(app):
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router), group=1
+        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router),
+        group=1,
     )
