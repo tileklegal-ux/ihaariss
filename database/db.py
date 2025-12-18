@@ -1,108 +1,87 @@
 # database/db.py
-import sqlite3
-import time
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from contextlib import closing
+from datetime import datetime
 
-DB_PATH = "database.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
-def init_db():
+# =========================
+# USERS
+# =========================
+
+def ensure_user_exists(
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    last_name: str | None,
+):
     with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            role TEXT DEFAULT 'user',
-            premium_until INTEGER DEFAULT 0
-        )
-        """)
-        conn.commit()
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO users (telegram_id, username, first_name, last_name, role)
+                VALUES (%s, %s, %s, %s, 'user')
+                ON CONFLICT (telegram_id) DO UPDATE
+                SET username = EXCLUDED.username,
+                    first_name = EXCLUDED.first_name,
+                    last_name = EXCLUDED.last_name
+            """, (telegram_id, username, first_name, last_name))
+            conn.commit()
 
 
-def ensure_user_exists(user_id: int, username: str | None = None):
-    """
-    Гарантирует, что пользователь есть в БД.
-    Если уже есть — обновляем username (если пришёл).
-    """
+def get_user_role(telegram_id: int) -> str:
     with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
-        row = cur.fetchone()
-
-        if row is None:
+        with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (user_id, username, role, premium_until) VALUES (?, ?, 'user', 0)",
-                (user_id, username or ""),
+                "SELECT role FROM users WHERE telegram_id = %s",
+                (telegram_id,)
             )
-        else:
-            if username:
-                cur.execute(
-                    "UPDATE users SET username = ? WHERE user_id = ?",
-                    (username, user_id),
-                )
-        conn.commit()
+            row = cur.fetchone()
+            return row["role"] if row else "user"
 
 
-def get_user_by_username(username: str):
-    if not username:
-        return None
-    username = username.lstrip("@").strip()
-
+def set_user_role(telegram_id: int, role: str):
     with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT user_id, username, role, premium_until FROM users WHERE username = ?",
-            (username,),
-        )
-        return cur.fetchone()
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET role = %s WHERE telegram_id = %s",
+                (role, telegram_id)
+            )
+            conn.commit()
 
 
-def get_user_role(user_id: int):
+# =========================
+# PREMIUM
+# =========================
+
+def is_user_premium(telegram_id: int) -> bool:
     with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
-        row = cur.fetchone()
-        return row[0] if row else "user"
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT premium_until
+                FROM users
+                WHERE telegram_id = %s
+            """, (telegram_id,))
+            row = cur.fetchone()
+            return bool(row and row["premium_until"] and row["premium_until"] > datetime.utcnow())
 
 
-def set_user_role(user_id: int, role: str):
+def grant_premium(telegram_id: int, until: datetime):
     with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute("""
-        INSERT INTO users (user_id, role)
-        VALUES (?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET role = excluded.role
-        """, (user_id, role))
-        conn.commit()
-
-
-def get_premium_until(user_id: int) -> int:
-    with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT premium_until FROM users WHERE user_id = ?", (user_id,))
-        row = cur.fetchone()
-        return int(row[0]) if row and row[0] is not None else 0
-
-
-def set_premium_until(user_id: int, premium_until: int):
-    with closing(get_connection()) as conn:
-        cur = conn.cursor()
-        cur.execute("""
-        INSERT INTO users (user_id, premium_until)
-        VALUES (?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET premium_until = excluded.premium_until
-        """, (user_id, int(premium_until)))
-        conn.commit()
-
-
-def is_user_premium(user_id: int) -> bool:
-    """
-    Используется services/premium_checker.py
-    """
-    now = int(time.time())
-    return get_premium_until(user_id) > now
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET is_premium = TRUE,
+                    premium_until = %s
+                WHERE telegram_id = %s
+            """, (until, telegram_id))
+            conn.commit()
