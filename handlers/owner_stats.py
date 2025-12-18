@@ -4,8 +4,8 @@ import time
 import sqlite3
 
 # ИСПРАВЛЕННЫЕ ИМПОРТЫ:
-from database.db import get_user_role, get_connection  # было: get_db_connection
-from audit_log import log_event  # было: from services.audit_log import log_event
+from database.db import get_user_role, get_connection  # ИЗМЕНИТЬ: get_connection вместо get_db_connection
+from audit_log import log_event  # ИЗМЕНИТЬ: из корня проекта
 
 BTN_STATS = "📊 Статистика бота"
 
@@ -22,7 +22,7 @@ async def owner_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = int(time.time())
 
     # --- users DB ---
-    conn = get_connection()  # ИЗМЕНЕНО
+    conn = get_connection()  # ИЗМЕНИТЬ: get_connection()
     cur = conn.cursor()
 
     cur.execute("SELECT COUNT(*) FROM users")
