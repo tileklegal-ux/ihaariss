@@ -31,11 +31,13 @@ def main() -> None:
     # Создаем приложение
     app = Application.builder().token(token).build()
 
-    # ПОРЯДОК = ПРИОРИТЕТ
+    # ИСПРАВЛЕННЫЙ ПОРЯДОК = ПРИОРИТЕТ
     register_start_handlers(app)      # /start — группа 0
-    register_owner_handlers(app)      # OWNER — группа 1
-    register_manager_handlers(app)    # MANAGER — группа 1
-    register_handlers_user(app)       # USER — группа 1 (последний)
+    
+    # Группа 1: общие -> специфичные
+    register_handlers_user(app)       # USER — группа 1 (ПЕРВЫЙ)
+    register_manager_handlers(app)    # MANAGER — группа 1 (ВТОРОЙ)
+    register_owner_handlers(app)      # OWNER — группа 1 (ПОСЛЕДНИЙ)
 
     logger.info("Бот запускается...")
 
