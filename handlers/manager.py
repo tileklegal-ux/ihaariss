@@ -11,10 +11,10 @@ from database.db import (
 )
 
 # =============================
-# KEYS
+# FSM KEY (ТОЛЬКО ДЛЯ МЕНЕДЖЕРА)
 # =============================
 
-MANAGER_PREMIUM_AWAIT_KEY = "manager_await_premium"
+MANAGER_AWAIT_PREMIUM = "manager_await_premium"
 
 # =============================
 # KEYBOARD
@@ -33,7 +33,7 @@ MANAGER_KEYBOARD = ReplyKeyboardMarkup(
 # =============================
 
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.pop(MANAGER_PREMIUM_AWAIT_KEY, None)
+    context.user_data.pop(MANAGER_AWAIT_PREMIUM, None)
 
     await update.message.reply_text(
         "🧑‍💼 Панель менеджера",
@@ -56,7 +56,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
     except Exception:
         return
 
-    # работаем ТОЛЬКО с менеджером
+    # ⛔️ ВАЖНО: работаем ТОЛЬКО с менеджером
     if role != "manager":
         return
 
@@ -68,7 +68,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
     # EXIT
     # -------------------------
     if text == "⬅️ Выйти":
-        context.user_data.pop(MANAGER_PREMIUM_AWAIT_KEY, None)
+        context.user_data.pop(MANAGER_AWAIT_PREMIUM, None)
         await update.message.reply_text("Выход из панели менеджера")
         return
 
@@ -76,7 +76,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
     # START PREMIUM FLOW
     # -------------------------
     if text == "⭐ Активировать Premium":
-        context.user_data[MANAGER_PREMIUM_AWAIT_KEY] = True
+        context.user_data[MANAGER_AWAIT_PREMIUM] = True
 
         await update.message.reply_text(
             "⭐ Активация Premium\n\n"
@@ -90,11 +90,11 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
     # -------------------------
     # HANDLE PREMIUM INPUT
     # -------------------------
-    if context.user_data.get(MANAGER_PREMIUM_AWAIT_KEY):
+    if context.user_data.get(MANAGER_AWAIT_PREMIUM):
         parts = text.split()
         if len(parts) != 2:
             await update.message.reply_text(
-                "❌ Неверный формат.\nИспользуй: TELEGRAM_ID ДНИ"
+                "❌ Формат неверный.\nИспользуй: TELEGRAM_ID ДНИ"
             )
             return
 
@@ -120,7 +120,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         premium_until = datetime.now(timezone.utc) + timedelta(days=days)
         set_premium_until(tg_id, premium_until)
 
-        context.user_data.pop(MANAGER_PREMIUM_AWAIT_KEY, None)
+        context.user_data.pop(MANAGER_AWAIT_PREMIUM, None)
 
         await update.message.reply_text(
             "✅ Premium активирован\n\n"
@@ -136,7 +136,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
                 text=(
                     "🎉 Premium активирован!\n\n"
                     f"⏳ Срок действия: {days} дней\n\n"
-                    "Теперь вам доступны расширенные функции бота 🚀"
+                    "Теперь вам доступны расширенные функции 🚀"
                 ),
             )
         except Exception:
