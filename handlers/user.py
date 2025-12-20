@@ -725,6 +725,12 @@ async def user_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
+    # Не обрабатывать менеджеров и владельцев
+    user_id = update.effective_user.id
+    role = get_user_role(user_id)
+    if role == "manager" or role == "owner":
+        return
+
     # 1. ONBOARDING — ПЕРВЫМ
     if context.user_data.get(ONBOARDING_KEY):
         if text == BTN_YES:
