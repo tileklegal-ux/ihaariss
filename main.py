@@ -12,7 +12,6 @@ from handlers.manager import register_manager_handlers
 from handlers.user import register_handlers_user
 
 
-# Настройка логирования
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -25,26 +24,23 @@ def main() -> None:
     if not token:
         raise RuntimeError("BOT_TOKEN is not set")
 
-    # Инициализация БД
     init_db()
-
-    # Создаем приложение
     app = Application.builder().token(token).build()
 
-    # ИСПРАВЛЕННЫЙ ПОРЯДОК = ПРИОРИТЕТ
-    register_start_handlers(app)      # /start — группа 0
+    # ФИНАЛЬНЫЙ ПОРЯДОК: owner → manager → user
+    register_start_handlers(app)      # группа 0
     
-    # Группа 1: общие -> специфичные
-    register_handlers_user(app)       # USER — группа 1 (ПЕРВЫЙ)
-    register_manager_handlers(app)    # MANAGER — группа 1 (ВТОРОЙ)
-    register_owner_handlers(app)      # OWNER — группа 1 (ПОСЛЕДНИЙ)
+    # Группа 1: от высшего приоритета к низшему
+    register_owner_handlers(app)      # OWNER - первый
+    register_manager_handlers(app)    # MANAGER - второй  
+    register_handlers_user(app)       # USER - третий
 
     logger.info("Бот запускается...")
 
-    # Запуск polling (single instance, Railway-safe)
     app.run_polling(
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
+        close_loop=False,
     )
 
 
