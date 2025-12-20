@@ -1,7 +1,7 @@
+# handlers/manager.py
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
 from datetime import datetime, timedelta, timezone
-
 from database.db import get_user_role, set_premium_until, ensure_user_exists
 
 MANAGER_KEYBOARD = ReplyKeyboardMarkup(
@@ -31,13 +31,17 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     text = (update.message.text or "").strip()
 
-    # ─── ВЫХОД ─────────────────────────────────────
+    # ─────────────────────────────
+    # EXIT
+    # ─────────────────────────────
     if text == "⬅️ Выйти":
         context.user_data.clear()
         await update.message.reply_text("Выход из панели менеджера")
         return
 
-    # ─── СТАРТ АКТИВАЦИИ PREMIUM ───────────────────
+    # ─────────────────────────────
+    # START PREMIUM FLOW
+    # ─────────────────────────────
     if text == "⭐ Активировать Premium":
         context.user_data.clear()
         context.user_data["await_premium"] = True
@@ -51,22 +55,19 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    # ─── ОБРАБОТКА ВВОДА TELEGRAM_ID ДНИ ───────────
+    # ─────────────────────────────
+    # HANDLE INPUT: TELEGRAM_ID DAYS
+    # ─────────────────────────────
     if context.user_data.get("await_premium"):
         parts = text.split()
-
         if len(parts) != 2:
-            await update.message.reply_text(
-                "❌ Неверный формат.\nИспользуй: TELEGRAM_ID ДНИ"
-            )
+            await update.message.reply_text("❌ Неверный формат. Используй: TELEGRAM_ID ДНИ")
             return
 
         tg_id, days = parts
 
         if not tg_id.isdigit() or not days.isdigit():
-            await update.message.reply_text(
-                "❌ Telegram ID и дни должны быть числами."
-            )
+            await update.message.reply_text("❌ Telegram ID и дни должны быть числами.")
             return
 
         tg_id = int(tg_id)
@@ -96,8 +97,8 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
                 chat_id=tg_id,
                 text=(
                     "🎉 Premium активирован!\n\n"
-                    f"⏳ Срок: {days} дней\n\n"
-                    "Теперь тебе доступны расширенные возможности бота."
+                    f"⏳ Срок действия: {days} дней\n\n"
+                    "Теперь вам доступны расширенные функции бота 🚀"
                 ),
             )
         except Exception:
@@ -105,12 +106,9 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         return
 
+
 def register_manager_handlers(app):
     app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            manager_text_router,
-            block=False
-        ),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router, block=False),
         group=1,
     )
