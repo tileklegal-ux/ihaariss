@@ -618,14 +618,15 @@ async def user_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = _safe_text(update)
     if not text:
         return
- # Onboarding — ОБРАБАТЫВАЕМ СРАЗУ
-    if context.user_data.get(ONBOARDING_KEY):
+# Onboarding — ОБРАБАТЫВАЕМ СРАЗУ
+if context.user_data.get(ONBOARDING_KEY):
     if text == BTN_YES:
         await on_yes(update, context)
         return
+
     if text == BTN_NO:
         await on_no(update, context)
-        return       
+        return
 
     # AI-наставник: выход
     if context.user_data.get(AI_CHAT_MODE_KEY):
