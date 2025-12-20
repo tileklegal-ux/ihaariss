@@ -614,7 +614,7 @@ async def user_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     role = get_user_role(user_id)
-    if role != "user":
+    if role and role != "user":
         return
 
     text = _safe_text(update)
