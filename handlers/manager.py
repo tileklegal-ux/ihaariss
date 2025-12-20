@@ -1,11 +1,8 @@
-# manager.py
+# handlers/manager.py
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
-
 from datetime import datetime, timedelta, timezone
-
 from database.db import get_user_role, set_premium_until, ensure_user_exists
-
 
 MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -15,13 +12,11 @@ MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🧑‍💼 Панель менеджера",
         reply_markup=MANAGER_KEYBOARD,
     )
-
 
 async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -100,6 +95,9 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"⏳ Срок: {days} дней"
         )
 
+        # ВОЗВРАТ В МЕНЮ МЕНЕДЖЕРА (КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ)
+        await manager_start(update, context)
+
         # уведомление пользователю
         try:
             await context.bot.send_message(
@@ -116,9 +114,8 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         return
 
-
 def register_manager_handlers(app):
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router),
         group=1,
-    )
+    
