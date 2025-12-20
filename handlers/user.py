@@ -4,7 +4,7 @@ import logging
 
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
-
+from telegram.ext import ApplicationHandlerStop
 from handlers.user_keyboards import (
     BTN_AI_CHAT,  # 🤖 AI-наставник (одноразовый вопрос-ответ)
     main_menu_keyboard,
@@ -697,7 +697,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == BTN_NO:
             await on_no(update, context)
             return
-        return
+        return ApplicationHandlerStop
 
     # 3) AI-наставник (одноразово)
     if context.user_data.get(AI_MENTOR_PENDING_KEY):
