@@ -3,9 +3,8 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
 
 from database.db import get_user_role
-from handlers.role_actions import add_manager, remove_manager
 from handlers.owner_stats import show_owner_stats
-
+from handlers.role_actions import add_manager, remove_manager
 
 OWNER_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -16,23 +15,11 @@ OWNER_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-
 async def owner_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👑 Эй, босс!\n\n"
-        "Добро пожаловать в панель владельца 💼\n\n"
-        "Здесь ты управляешь всем проектом:\n"
-        "• 📊 смотришь общую статистику\n"
-        "• ➕ добавляешь менеджеров\n"
-        "• ➖ удаляешь менеджеров\n\n"
-        "🚀 В ближайших обновлениях:\n"
-        "• детальная аналитика роста\n"
-        "• доходы и конверсии\n"
-        "• экспорт отчётов\n"
-        "• уведомления о ключевых событиях\n",
+        "👑 Панель владельца",
         reply_markup=OWNER_KEYBOARD,
     )
-
 
 async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -67,20 +54,19 @@ async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "⬅️ Выйти":
         context.user_data.clear()
-        await update.message.reply_text("Выход из панели владельца")
+        await update.message.reply_text("Выход из панели владельца", reply_markup=OWNER_KEYBOARD)
         return
 
     action = context.user_data.get("await_role_action")
-    if action:
+    if action in ("add", "remove"):
         if not text.isdigit():
-            await update.message.reply_text("❌ Пришли Telegram ID числом.")
+            await update.message.reply_text("❌ Telegram ID должен быть числом.")
             return
 
         target_id = int(text)
 
         if action == "add":
             await add_manager(update, context, target_id)
-
         elif action == "remove":
             await remove_manager(update, context, target_id)
 
