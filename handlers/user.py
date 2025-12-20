@@ -746,60 +746,7 @@ async def user_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await ai_mentor_text_handler(update, context)
         return
 
-    # 3. ПОДМЕНЮ БИЗНЕС-АНАЛИЗА
-    if context.user_data.get("in_business_submenu"):
-        if text == BTN_PM:
-            await pm_start(update, context)
-            return
-        if text == BTN_GROWTH:
-            await growth_start(update, context)
-            return
-        if text == BTN_COMPANY_STAGE:
-            await company_stage_start(update, context)
-            return
-        if text == BTN_BACK:
-            context.user_data.pop("in_business_submenu", None)
-            lang = context.user_data.get("lang", "ru")
-            await update.message.reply_text(
-                T(lang, "choose_section"),
-                reply_markup=main_menu_keyboard(),
-            )
-            return
-
-    # 4. FSM HANDLERS
-    if context.user_data.get(PM_STATE_KEY):
-        await pm_handler(update, context)
-        return
-
-    if context.user_data.get(GROWTH_KEY):
-        await growth_handler(update, context)
-        return
-
-    if context.user_data.get(COMPANY_STAGE_STATE):
-        await handle_company_stage(update, context)
-        return
-
-    if text == "📊 Скачать Excel":
-        await on_export_excel(update, context)
-        return
-
-    if text == "📄 Скачать PDF":
-        await on_export_pdf(update, context)
-        return
-
-    if text == "📈 Экспорт этапа":
-        await handle_company_stage_export(update, context)
-        return
-
-    if context.user_data.get(TA_STATE_KEY):
-        await ta_handler(update, context)
-        return
-
-    if context.user_data.get(NS_STEP_KEY):
-        await ns_handler(update, context)
-        return
-
-    # 5. ОСНОВНЫЕ КНОПКИ
+    # 3. ОСНОВНЫЕ КНОПКИ (ДОБАВЛЕНО: проверка перед подменю)
     if text == BTN_BIZ:
         await on_business_analysis(update, context)
         return
@@ -834,6 +781,59 @@ async def user_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_AI_CHAT:
         clear_fsm(context)
         await ai_mentor_intro(update, context)
+        return
+
+    # 4. ПОДМЕНЮ БИЗНЕС-АНАЛИЗА
+    if context.user_data.get("in_business_submenu"):
+        if text == BTN_PM:
+            await pm_start(update, context)
+            return
+        if text == BTN_GROWTH:
+            await growth_start(update, context)
+            return
+        if text == BTN_COMPANY_STAGE:
+            await company_stage_start(update, context)
+            return
+        if text == BTN_BACK:
+            context.user_data.pop("in_business_submenu", None)
+            lang = context.user_data.get("lang", "ru")
+            await update.message.reply_text(
+                T(lang, "choose_section"),
+                reply_markup=main_menu_keyboard(),
+            )
+            return
+
+    # 5. FSM HANDLERS
+    if context.user_data.get(PM_STATE_KEY):
+        await pm_handler(update, context)
+        return
+
+    if context.user_data.get(GROWTH_KEY):
+        await growth_handler(update, context)
+        return
+
+    if context.user_data.get(COMPANY_STAGE_STATE):
+        await handle_company_stage(update, context)
+        return
+
+    if text == "📊 Скачать Excel":
+        await on_export_excel(update, context)
+        return
+
+    if text == "📄 Скачать PDF":
+        await on_export_pdf(update, context)
+        return
+
+    if text == "📈 Экспорт этапа":
+        await handle_company_stage_export(update, context)
+        return
+
+    if context.user_data.get(TA_STATE_KEY):
+        await ta_handler(update, context)
+        return
+
+    if context.user_data.get(NS_STEP_KEY):
+        await ns_handler(update, context)
         return
 
     # 6. По умолчанию возвращаем в меню
