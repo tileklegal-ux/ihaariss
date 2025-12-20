@@ -1,8 +1,24 @@
 # handlers/manager.py
+
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
 from datetime import datetime, timedelta, timezone
-from database.db import get_user_role, set_premium_until, ensure_user_exists
+
+from database.db import (
+    get_user_role,
+    set_premium_until,
+    ensure_user_exists,
+)
+
+# =============================
+# KEYS
+# =============================
+
+MANAGER_PREMIUM_AWAIT_KEY = "manager_await_premium"
+
+# =============================
+# KEYBOARD
+# =============================
 
 MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -12,11 +28,21 @@ MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
+# =============================
+# START
+# =============================
+
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop(MANAGER_PREMIUM_AWAIT_KEY, None)
+
     await update.message.reply_text(
         "🧑‍💼 Панель менеджера",
         reply_markup=MANAGER_KEYBOARD,
     )
+
+# =============================
+# TEXT ROUTER
+# =============================
 
 async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -24,27 +50,33 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = user.id
-    role = get_user_role(user_id)
 
+    try:
+        role = get_user_role(user_id)
+    except Exception:
+        return
+
+    # работаем ТОЛЬКО с менеджером
     if role != "manager":
         return
 
     text = (update.message.text or "").strip()
+    if not text:
+        return
 
-    # ─────────────────────────────
+    # -------------------------
     # EXIT
-    # ─────────────────────────────
+    # -------------------------
     if text == "⬅️ Выйти":
-        context.user_data.clear()
+        context.user_data.pop(MANAGER_PREMIUM_AWAIT_KEY, None)
         await update.message.reply_text("Выход из панели менеджера")
         return
 
-    # ─────────────────────────────
+    # -------------------------
     # START PREMIUM FLOW
-    # ─────────────────────────────
+    # -------------------------
     if text == "⭐ Активировать Premium":
-        context.user_data.clear()
-        context.user_data["await_premium"] = True
+        context.user_data[MANAGER_PREMIUM_AWAIT_KEY] = True
 
         await update.message.reply_text(
             "⭐ Активация Premium\n\n"
@@ -55,26 +87,32 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    # ─────────────────────────────
-    # HANDLE INPUT: TELEGRAM_ID DAYS
-    # ─────────────────────────────
-    if context.user_data.get("await_premium"):
+    # -------------------------
+    # HANDLE PREMIUM INPUT
+    # -------------------------
+    if context.user_data.get(MANAGER_PREMIUM_AWAIT_KEY):
         parts = text.split()
         if len(parts) != 2:
-            await update.message.reply_text("❌ Неверный формат. Используй: TELEGRAM_ID ДНИ")
+            await update.message.reply_text(
+                "❌ Неверный формат.\nИспользуй: TELEGRAM_ID ДНИ"
+            )
             return
 
         tg_id, days = parts
 
         if not tg_id.isdigit() or not days.isdigit():
-            await update.message.reply_text("❌ Telegram ID и дни должны быть числами.")
+            await update.message.reply_text(
+                "❌ Telegram ID и дни должны быть числами."
+            )
             return
 
         tg_id = int(tg_id)
         days = int(days)
 
         if days <= 0:
-            await update.message.reply_text("❌ Количество дней должно быть больше 0.")
+            await update.message.reply_text(
+                "❌ Количество дней должно быть больше 0."
+            )
             return
 
         ensure_user_exists(tg_id)
@@ -82,10 +120,10 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         premium_until = datetime.now(timezone.utc) + timedelta(days=days)
         set_premium_until(tg_id, premium_until)
 
-        context.user_data.clear()
+        context.user_data.pop(MANAGER_PREMIUM_AWAIT_KEY, None)
 
         await update.message.reply_text(
-            f"✅ Premium активирован\n\n"
+            "✅ Premium активирован\n\n"
             f"👤 Пользователь: {tg_id}\n"
             f"⏳ Срок: {days} дней"
         )
@@ -106,9 +144,12 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         return
 
+# =============================
+# REGISTER
+# =============================
 
 def register_manager_handlers(app):
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router, block=False),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router),
         group=1,
     )
