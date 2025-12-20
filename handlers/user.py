@@ -753,8 +753,8 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await on_business_analysis(update, context)
         return
     if text == BTN_AI_CHAT:
-    lang = context.user_data.get("lang", "ru")
-    user_id = update.effective_user.id
+       lang = context.user_data.get("lang", "ru")
+       user_id = update.effective_user.id
 
     if is_user_premium(user_id):
         intro_text = T(lang, "ai_mentor_premium")
