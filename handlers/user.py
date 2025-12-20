@@ -753,8 +753,24 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await on_business_analysis(update, context)
         return
     if text == BTN_AI_CHAT:
-        await enter_ai_chat(update, context)
-        return
+    lang = context.user_data.get("lang", "ru")
+    user_id = update.effective_user.id
+
+    if is_user_premium(user_id):
+        intro_text = T(lang, "ai_mentor_premium")
+    else:
+        intro_text = T(lang, "ai_mentor_free")
+
+    await update.message.reply_text(intro_text)
+
+    # включаем режим наставника (чат)
+    context.user_data["ai_chat"] = True
+
+    await update.message.reply_text(
+        "✍️ Опиши свою ситуацию или вопрос.",
+        reply_markup=ai_chat_keyboard()
+    )
+    return
     if text == BTN_PROFILE:
         await on_profile(update, context)
         return
