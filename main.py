@@ -23,11 +23,11 @@ def main() -> None:
     init_db()
     app = Application.builder().token(token).build()
 
-    # КРИТИЧЕСКИЙ ПОРЯДОК: manager ПЕРВЫЙ
+    # КРИТИЧЕСКИЙ ПОРЯДОК: owner ПЕРВЫЙ
     register_start_handlers(app)
-    register_manager_handlers(app)    # <-- ПЕРВЫЙ в группе 1
-    register_owner_handlers(app)      # <-- ВТОРОЙ
-    register_handlers_user(app)       # <-- ТРЕТИЙ
+    register_owner_handlers(app)      # <-- ПЕРВЫЙ в группе 1 (ВЛАДЕЛЕЦ)
+    register_manager_handlers(app)    # <-- ВТОРОЙ в группе 1
+    register_handlers_user(app)       # <-- ТРЕТИЙ в группе 1
 
     logger.info("Бот запускается...")
     app.run_polling(
