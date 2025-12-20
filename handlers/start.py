@@ -2,7 +2,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 
-from database.db import ensure_user_exists, get_user_role
+from database.db import get_user_role, ensure_user_exists
 from handlers.owner import owner_start
 from handlers.manager import manager_start
 from handlers.user import cmd_start_user
