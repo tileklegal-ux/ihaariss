@@ -749,9 +749,6 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 9) Кнопки переходов (Главное меню) - ТОЛЬКО ПЕРВЫЙ УРОВЕНЬ
-    if text == BTN_BIZ:
-        await on_business_analysis(update, context)
-        return
     if text == BTN_AI_CHAT:
        lang = context.user_data.get("lang", "ru")
        user_id = update.effective_user.id
@@ -763,12 +760,12 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(intro_text)
 
-    # включаем режим наставника (чат)
+    # включаем режим AI-наставника
     context.user_data["ai_chat"] = True
 
     await update.message.reply_text(
         "✍️ Опиши свою ситуацию или вопрос.",
-        reply_markup=ai_chat_keyboard()
+        reply_markup=ai_chat_keyboard(),
     )
     return
     if text == BTN_PROFILE:
