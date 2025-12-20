@@ -722,4 +722,3 @@ def register_handlers_user(app):
         MessageHandler(filters.TEXT & ~filters.COMMAND, user_text_router),
         group=1,
     )
-```0
