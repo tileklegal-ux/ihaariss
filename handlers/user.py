@@ -827,12 +827,12 @@ async def show_documents(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def register_handlers_user(app: Application):
     """
     Регистрирует пользовательский текстовый роутер.
+    ВСЕГДА последний, чтобы не перехватывать owner / manager
     """
     app.add_handler(
-    MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        text_router,
-        
-    ),
-    group=0,
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            text_router,
+        ),
+        group=4,
     )
