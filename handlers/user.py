@@ -834,5 +834,5 @@ def register_handlers_user(app: Application):
             filters.TEXT & ~filters.COMMAND,
             text_router,
         ),
-        group=4,
+        group=9,
     )
