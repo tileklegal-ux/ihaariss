@@ -11,7 +11,19 @@ from database.db import (
 )
 
 # =============================
-# FSM KEY (ТОЛЬКО ДЛЯ МЕНЕДЖЕРА)
+# 🔒 CUSTOM FILTER: ONLY MANAGER
+# =============================
+
+class IsManager(filters.BaseFilter):
+    def filter(self, message):
+        if not message or not message.from_user:
+            return False
+        return get_user_role(message.from_user.id) == "manager"
+
+IS_MANAGER = IsManager()
+
+# =============================
+# FSM KEY
 # =============================
 
 MANAGER_AWAIT_PREMIUM = "manager_await_premium"
@@ -34,7 +46,7 @@ MANAGER_KEYBOARD = ReplyKeyboardMarkup(
 
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ensure_user_exists(update.effective_user.id)
-    context.user_data.pop(MANAGER_AWAIT_PREMIUM, None)
+    context.user_data.clear()
 
     await update.message.reply_text(
         "🧑‍💼 Панель менеджера",
@@ -42,39 +54,26 @@ async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =============================
-# TEXT ROUTER
+# TEXT ROUTER (MANAGER ONLY)
 # =============================
 
 async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not user or not update.message:
-        return
-
-    user_id = user.id
-    ensure_user_exists(user_id)
-
-    role = get_user_role(user_id)
-    if role != "manager":
-        return
-
     text = (update.message.text or "").strip()
     if not text:
         return
 
-    # -------------------------
-    # EXIT → ВОЗВРАТ В ПАНЕЛЬ МЕНЕДЖЕРА
-    # -------------------------
+    # EXIT
     if text == "⬅️ Выйти":
-        context.user_data.pop(MANAGER_AWAIT_PREMIUM, None)
-        await manager_start(update, context)
+        context.user_data.clear()
+        await update.message.reply_text(
+            "Вы вышли из панели менеджера",
+            reply_markup=MANAGER_KEYBOARD,
+        )
         return
 
-    # -------------------------
     # START PREMIUM FLOW
-    # -------------------------
     if text == "⭐ Активировать Premium":
         context.user_data[MANAGER_AWAIT_PREMIUM] = True
-
         await update.message.reply_text(
             "⭐ Активация Premium\n\n"
             "Отправь сообщение в формате:\n"
@@ -84,9 +83,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    # -------------------------
     # HANDLE PREMIUM INPUT
-    # -------------------------
     if context.user_data.get(MANAGER_AWAIT_PREMIUM):
         parts = text.split()
         if len(parts) != 2:
@@ -117,7 +114,7 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         premium_until = datetime.now(timezone.utc) + timedelta(days=days)
         set_premium_until(tg_id, premium_until)
 
-        context.user_data.pop(MANAGER_AWAIT_PREMIUM, None)
+        context.user_data.clear()
 
         await update.message.reply_text(
             "✅ Premium активирован\n\n"
@@ -138,14 +135,12 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         except Exception:
             pass
 
-        return
-
 # =============================
 # REGISTER
 # =============================
 
 def register_manager_handlers(app):
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router),
+        MessageHandler(filters.TEXT & ~filters.COMMAND & IS_MANAGER, manager_text_router),
         group=1,
     )
