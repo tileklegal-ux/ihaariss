@@ -1,97 +1,91 @@
-# handlers/owner.py
-
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
 
-from database.db import (
-    get_user_role,
-    ensure_user_exists,
-    get_total_users,
-    get_premium_users,
-    get_managers_count,
-)
-
+from database.db import get_user_role
+from handlers.owner_stats import show_owner_stats
 from handlers.role_actions import add_manager, remove_manager
 
 OWNER_KEYBOARD = ReplyKeyboardMarkup(
     [
         ["📊 Общая статистика"],
-        ["➕ Добавить менеджера"],
-        ["➖ Удалить менеджера"],
+        ["➕ Добавить менеджера", "➖ Удалить менеджера"],
         ["⬅️ Выйти"],
     ],
     resize_keyboard=True,
 )
 
+OWNER_AWAIT_ACTION = "owner_await_action"     # "add" | "remove"
+OWNER_AWAIT_ID = "owner_await_id"             # True
+
+
 async def owner_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
 
-    ensure_user_exists(update.effective_user.id)
     context.user_data.clear()
+    await update.message.reply_text("👑 Панель владельца", reply_markup=OWNER_KEYBOARD)
 
-    await update.message.reply_text(
-        "👑 Панель владельца",
-        reply_markup=OWNER_KEYBOARD,
-    )
 
 async def owner_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     message = update.message
-
     if not user or not message or not message.text:
         return
 
-    if get_user_role(user.id) != "owner":
-        return
+    role = get_user_role(user.id)
+    if role != "owner":
+        return  # не owner — не трогаем, пусть дальше роутится
 
     text = message.text.strip()
 
+    # Выйти
     if text == "⬅️ Выйти":
         context.user_data.clear()
         await owner_start(update, context)
         return
 
+    # Статистика
     if text == "📊 Общая статистика":
-        total = get_total_users()
-        premium = get_premium_users()
-        managers = get_managers_count()
-
-        await message.reply_text(
-            "📊 Общая статистика\n\n"
-            f"👥 Всего пользователей: {total}\n"
-            f"⭐ Premium пользователей: {premium}\n"
-            f"🧑‍💼 Менеджеров: {managers}"
-        )
+        await show_owner_stats(update, context)
         return
 
+    # Начать добавление менеджера
     if text == "➕ Добавить менеджера":
-        context.user_data["await_add_manager"] = True
+        context.user_data.clear()
+        context.user_data[OWNER_AWAIT_ACTION] = "add"
+        context.user_data[OWNER_AWAIT_ID] = True
         await message.reply_text("Отправь Telegram ID менеджера числом.")
         return
 
+    # Начать удаление менеджера
     if text == "➖ Удалить менеджера":
-        context.user_data["await_remove_manager"] = True
+        context.user_data.clear()
+        context.user_data[OWNER_AWAIT_ACTION] = "remove"
+        context.user_data[OWNER_AWAIT_ID] = True
         await message.reply_text("Отправь Telegram ID менеджера для удаления.")
         return
 
-    if context.user_data.get("await_add_manager"):
-        context.user_data.pop("await_add_manager", None)
-        await add_manager(update, context)
+    # Принимаем ID после кнопок add/remove
+    if context.user_data.get(OWNER_AWAIT_ID):
+        if not text.isdigit():
+            await message.reply_text("Пришли Telegram ID числом.")
+            return
+
+        target_id = int(text)
+        action = context.user_data.get(OWNER_AWAIT_ACTION)
+
+        if action == "add":
+            await add_manager(update, context, target_id)
+        elif action == "remove":
+            await remove_manager(update, context, target_id)
+
+        context.user_data.clear()
         return
 
-    if context.user_data.get("await_remove_manager"):
-        context.user_data.pop("await_remove_manager", None)
-        await remove_manager(update, context)
-        return
 
 def register_owner_handlers(app):
+    # Важно: block=False, чтобы не мешать manager/user роутерам
     app.add_handler(
-        MessageHandler(
-            filters.Regex(
-                r"^(📊 Общая статистика|➕ Добавить менеджера|➖ Удалить менеджера|⬅️ Выйти)$"
-            ),
-            owner_text_router,
-        ),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, owner_text_router, block=False),
         group=1,
     )
