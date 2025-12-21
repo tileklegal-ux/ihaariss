@@ -686,7 +686,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 1) Проверка роли (owner / manager -> return)
-    if role in ("owner",):
+    if role in ("owner", "maneger"):
         return
 
     # 2) Онбординг (ONBOARDING_KEY)
