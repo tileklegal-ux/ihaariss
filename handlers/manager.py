@@ -1,26 +1,21 @@
 # handlers/manager.py
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
 
-from database.db import (
-    get_user_role,
-    set_premium_until,
-    ensure_user_exists,
-)
+from database.db import ensure_user_exists, get_user_role, set_premium_until
 
 # =============================
-# FSM KEY
+# FSM KEY (только для manager)
 # =============================
-
 MANAGER_AWAIT_PREMIUM = "manager_await_premium"
 
 # =============================
 # KEYBOARD
 # =============================
-
 MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     [
         ["⭐ Активировать Premium"],
@@ -29,21 +24,9 @@ MANAGER_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-def _normalize(text: str) -> str:
-    """
-    Telegram/телефоны иногда отправляют разные варианты эмодзи (⭐ vs ⭐️),
-    визуально одинаково, но строка другая -> if не срабатывает.
-    """
-    return (
-        text.replace("⭐️", "⭐")
-            .replace("⬅", "⬅️")   # на всякий случай (редко, но бывает)
-            .strip()
-    )
-
 # =============================
-# START (импортируется в start.py)
+# START (вызывается из start_router.py)
 # =============================
-
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not user or not update.message:
@@ -57,14 +40,13 @@ async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=MANAGER_KEYBOARD,
     )
 
-# =============================
-# TEXT ROUTER (ТОЛЬКО MANAGER / OWNER)
-# =============================
 
+# =============================
+# TEXT ROUTER (ТОЛЬКО manager/owner)
+# =============================
 async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     message = update.message
-
     if not user or not message or not message.text:
         return
 
@@ -72,22 +54,20 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     role = get_user_role(user.id)
     if role not in ("manager", "owner"):
-        return  # не менеджер — пропускаем
+        return
 
-    text = _normalize(message.text)
+    text = message.text.strip()
 
-    # EXIT
+    # Выход
     if text == "⬅️ Выйти":
         context.user_data.clear()
         await manager_start(update, context)
         return
 
-    # START PREMIUM FLOW
-    # (ловим оба варианта: "⭐ ..." и "⭐️ ..." через normalize)
-    if text.startswith("⭐") and "Активировать Premium" in text:
+    # Старт активации Premium
+    if text == "⭐ Активировать Premium":
         context.user_data.clear()
         context.user_data[MANAGER_AWAIT_PREMIUM] = True
-
         await message.reply_text(
             "⭐ Активация Premium\n\n"
             "Отправь сообщение в формате:\n"
@@ -97,21 +77,20 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    # HANDLE PREMIUM INPUT
+    # Обработка ввода TELEGRAM_ID ДНИ
     if context.user_data.get(MANAGER_AWAIT_PREMIUM):
         parts = text.split()
         if len(parts) != 2:
             await message.reply_text("❌ Формат: TELEGRAM_ID ДНИ")
             return
 
-        tg_id, days = parts
-        if not tg_id.isdigit() or not days.isdigit():
+        tg_id_s, days_s = parts
+        if not tg_id_s.isdigit() or not days_s.isdigit():
             await message.reply_text("❌ ID и дни должны быть числами")
             return
 
-        tg_id = int(tg_id)
-        days = int(days)
-
+        tg_id = int(tg_id_s)
+        days = int(days_s)
         if days <= 0:
             await message.reply_text("❌ Количество дней должно быть больше 0")
             return
@@ -130,32 +109,27 @@ async def manager_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
             reply_markup=MANAGER_KEYBOARD,
         )
 
+        # уведомление пользователю — не критично, если не дойдёт
         try:
             await context.bot.send_message(
                 chat_id=tg_id,
-                text=(
-                    "🎉 Вам активирован Premium!\n\n"
-                    f"⏳ Срок действия: {days} дней"
-                ),
+                text="🎉 Вам активирован Premium!\n\n" f"⏳ Срок: {days} дней",
             )
         except Exception:
             pass
 
         return
 
-    # ВАЖНО: чтобы менеджер не думал, что “кнопка не работает”
-    await message.reply_text(
-        "ℹ️ Команда не распознана.\n"
-        "Используй кнопки панели менеджера.",
-        reply_markup=MANAGER_KEYBOARD,
-    )
 
 # =============================
 # REGISTER
+# ВАЖНО: фильтр узкий, чтобы manager не перехватывал owner/user
 # =============================
-
 def register_manager_handlers(app):
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, manager_text_router, block=False),
-        group=1,
+        MessageHandler(
+            filters.Regex(r"^(⭐ Активировать Premium|⬅️ Выйти|\d+\s+\d+)$"),
+            manager_text_router,
+        ),
+        group=2,
     )
