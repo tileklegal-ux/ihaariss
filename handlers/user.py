@@ -671,11 +671,11 @@ async def ai_mentor_handle_question(update: Update, context: ContextTypes.DEFAUL
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _is_user_context(update):
-        return
+        return ApplicationHandlerStop
 
     text = _safe_text(update)
     if not text or text.startswith("/"):
-        return
+        return ApplicationHandlerStop
 
     lang = context.user_data.get("lang", "ru")
 
@@ -683,14 +683,14 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         role = get_user_role(update.effective_user.id)
     except Exception:
         logger.exception("get_user_role failed in user.text_router")
-        return
+        return ApplicationHandlerStop
 
     # 1) ПРОВЕРКА РОЛИ
     # user.py — ТОЛЬКО для обычных пользователей.
     # owner и manager имеют СВОИ интерфейсы и СВОИ роутеры.
     # Если роль не "user" — этот роутер НИЧЕГО не обрабатывает.
     if role != "user":
-        return
+        return ApplicationHandlerStop
 
     # 2) Онбординг (ONBOARDING_KEY)
     if context.user_data.get(ONBOARDING_KEY):
