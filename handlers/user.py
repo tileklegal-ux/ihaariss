@@ -829,6 +829,10 @@ def register_handlers_user(app: Application):
     Регистрирует пользовательский текстовый роутер.
     """
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, text_router),
-        group=4,
+    MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        text_router,
+        block=False,  # 🔑 ОБЯЗАТЕЛЬНО
+    ),
+    group=4,
     )
