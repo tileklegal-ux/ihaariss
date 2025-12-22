@@ -719,19 +719,19 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await on_no(update, context)
             return
         return 
-    # 3) AI-наставник (одноразово)
-if context.user_data.get(AI_MENTOR_PENDING):
-    if text == BTN_BACK:
-        context.user_data.pop(AI_MENTOR_PENDING, None)
-        clear_fsm(context)
-        await update.message.reply_text(
-            "Окей, вернулись в меню 👇",
-            reply_markup=main_menu_keyboard()
-        )
-        return
+    # 3) AI-наставник (одноразовый режим)
+    if context.user_data.get(AI_MENTOR_PENDING):
+        if text == BTN_BACK:
+            context.user_data.pop(AI_MENTOR_PENDING, None)
+            clear_fsm(context)
+            await update.message.reply_text(
+                "Окей, вернулись в меню 👇",
+                reply_markup=main_menu_keyboard()
+            )
+            return
 
-    await ai_mentor_handle_question(update, context)
-    return
+        await ai_mentor_handle_question(update, context)
+        return
 
     # 4) Глобальные кнопки меню + глобальный BACK
     if text == BTN_BACK:
