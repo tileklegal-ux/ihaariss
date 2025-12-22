@@ -720,7 +720,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         return 
     # 3) AI-наставник (одноразовый режим)
-    if context.user_data.get(AI_MENTOR_PENDING):
+    if context.user_data.get(AI_MENTOR_PENDING_KEY):
         if text == BTN_BACK:
             context.user_data.pop(AI_MENTOR_PENDING, None)
             clear_fsm(context)
