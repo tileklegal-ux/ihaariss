@@ -621,24 +621,26 @@ async def ai_mentor_handle_question(update: Update, context: ContextTypes.DEFAUL
     context.user_data.pop(AI_MENTOR_PENDING_KEY, None)
 
     user_text = _safe_text(update)
-if not user_text or user_text.startswith("/"):
-    return
+    if not user_text or user_text.startswith("/"):
+        return
 
-# ===== HUMAN INTENT LAYER =====
-intent = detect_intent(user_text)
+    # ===== HUMAN INTENT LAYER =====
+    intent = detect_intent(user_text)
 
-if intent == MessageIntent.SOCIAL:
-    await update.message.reply_text(
-        get_social_reply()
-    )
-    return
-# =============================
+    if intent == MessageIntent.SOCIAL:
+        await update.message.reply_text(
+            get_social_reply()
+        )
+        return
+    # =============================
 
     user_id = update.effective_user.id
     try:
         premium = is_user_premium(user_id)
     except Exception:
         premium = False
+
+    # ↓↓↓ ДАЛЬШЕ ИДЁТ ТВОЙ prompt (его НЕ трогаем)
 
     if not premium:
         prompt = (
