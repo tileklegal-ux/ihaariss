@@ -683,7 +683,7 @@ async def ai_mentor_handle_question(update: Update, context: ContextTypes.DEFAUL
     f"Ситуация пользователя:\n{user_text}"
         )
 
-    try:
+try:
     await update.message.chat.send_action("typing")
     answer = await ask_openai(prompt)
     await update.message.reply_text(answer)
